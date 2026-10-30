@@ -295,7 +295,7 @@
         .editable-only { display: inline-flex; }
         body.readonly-mode .editable-only { display: none !important; }
 
-        #customerFileInput, #aiCustomerFileInput, #paymentFileInput, #billingFileInput { display: none; }
+        #customerFileInput, #aiCustomerFileInput, #paymentFileInput, #billingFileInput, #agencyFileInput { display: none; }
     </style>
 </head>
 <body>
@@ -372,6 +372,25 @@
         </div>
     </div>
 
+    <!-- [추가] 대량등록 이력 / 삭제 모달 -->
+    <div id="bulkHistoryModal" class="modal-overlay">
+        <div class="modal-card" style="width: 640px;">
+            <div class="modal-header">
+                <span id="bulkHistoryTitle">대량등록 이력 / 삭제</span>
+                <span style="cursor:pointer;" onclick="closeModal('bulkHistoryModal')">✕</span>
+            </div>
+            <div class="form-group">
+                <label>엑셀 대량업로드 이력 (회차별 삭제 · 신규 등록분은 삭제, 갱신분은 업로드 이전 값으로 복원)</label>
+                <div class="history-list" id="bulkHistoryListContainer" style="max-height: 320px;">
+                    <div style="text-align:center; color:#94a3b8; padding:20px;">대량등록 이력이 없습니다.</div>
+                </div>
+            </div>
+            <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+                <button class="btn btn-outline" onclick="closeModal('bulkHistoryModal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 1. 신규 고객 수동 등록 모달 -->
     <div id="customerModal" class="modal-overlay">
         <div class="modal-card modal-card-large" style="width: 800px;">
@@ -405,7 +424,16 @@
                     <input type="number" id="m_commission" placeholder="0">
                 </div>
                 <div class="form-group"><label>엑셀명</label><input type="text" id="m_excel_name" placeholder="예: 곤트란쉐리에"></div>
-                <div class="form-group"><label>대리점명</label><input type="text" id="m_agency_name" placeholder="예: 포스뱅크"></div>
+                <div class="form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <label style="margin:0;">대리점명 (사업자번호 연동)</label>
+                        <select id="m_agency_quick_select" style="font-size:11px; padding:1px 4px; max-width:140px;" onchange="applyQuickAgencySelect('m_agency_quick_select', 'm_agency_name', 'm_biz_no', 'm_tax_name', 'm_tax_phone', 'm_tax_email', 'm_agency_biz_no')">
+                            <option value="">대리점 선택(자동입력)</option>
+                        </select>
+                    </div>
+                    <input type="text" id="m_agency_name" placeholder="예: 포스뱅크">
+                </div>
+                <div class="form-group"><label>대리점 사업자번호</label><input type="text" id="m_agency_biz_no" placeholder="예: 123-45-67890"></div>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
                 <div class="form-group"><label>Viscovery명</label><input type="text" id="m_viscovery_name" placeholder="예: Viscovery본점"></div>
@@ -475,7 +503,16 @@
                     <input type="number" id="edit_commission">
                 </div>
                 <div class="form-group"><label>엑셀명</label><input type="text" id="edit_excel_name"></div>
-                <div class="form-group"><label>대리점명</label><input type="text" id="edit_agency_name"></div>
+                <div class="form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <label style="margin:0;">대리점명 (사업자번호 연동)</label>
+                        <select id="edit_agency_quick_select" style="font-size:11px; padding:1px 4px; max-width:140px;" onchange="applyQuickAgencySelect('edit_agency_quick_select', 'edit_agency_name', 'edit_biz_no', 'edit_tax_name', 'edit_tax_phone', 'edit_tax_email', 'edit_agency_biz_no')">
+                            <option value="">대리점 선택(자동입력)</option>
+                        </select>
+                    </div>
+                    <input type="text" id="edit_agency_name">
+                </div>
+                <div class="form-group"><label>대리점 사업자번호</label><input type="text" id="edit_agency_biz_no"></div>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
                 <div class="form-group"><label>Viscovery명</label><input type="text" id="edit_viscovery_name"></div>
@@ -521,20 +558,80 @@
         </div>
     </div>
 
+        <!-- [신규 추가] 대리점 연결 매장 수동 관리 모달 (등록 및 삭제) -->
+    <div id="agencyStoresModal" class="modal-overlay">
+        <div class="modal-card modal-card-large" style="width: 850px;">
+            <div class="modal-header">
+                <span id="agencyStoresModalTitle">대리점 연결 매장 관리</span>
+                <span style="cursor:pointer;" onclick="closeModal('agencyStoresModal')">✕</span>
+            </div>
+            <input type="hidden" id="asm_agency_key" />
+            <div class="modal-user-card" style="margin-bottom:14px; background:#f0fdf4; border-color:#bbf7d0;">
+                <div class="modal-user-info" style="color:#166534;">
+                    <div><span>대리점명:</span> <strong id="asm_agency_name" style="color:#0f172a;">-</strong></div>
+                    <div><span>사업자번호:</span> <strong id="asm_agency_biz">-</strong></div>
+                    <div><span>현재 연결 매장:</span> <strong id="asm_agency_count" style="color:#16a34a;">0곳</strong></div>
+                </div>
+            </div>
+
+            <!-- 신규 매장 수동 연결 영역 -->
+            <div class="editable-only" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:12px; margin-bottom:14px;">
+                <div style="font-size:12px; font-weight:700; color:#2563eb; margin-bottom:8px;">➕ 기존 고객(매장)을 이 대리점에 수동으로 연결 추가</div>
+                <div style="display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center;">
+                    <div>
+                        <select id="asm_target_customer_select" class="filter-select" style="width:100%;">
+                            <option value="">-- 연결할 가맹점 매장을 선택하세요 (회원번호 / 가맹점명) --</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="addStoreToAgencyManually()" style="white-space:nowrap; padding:7px 16px;">매장 연결 등록</button>
+                </div>
+                <div style="font-size:11px; color:#64748b; margin-top:4px;">* 고객등록 시 자동 연결되었거나, 다른 대리점으로 등록된 매장을 이 대리점 관리 매장으로 즉시 귀속시킵니다.</div>
+            </div>
+
+            <div style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:6px;">현재 연결된 가맹점 매장 목록</div>
+            <div class="table-container" style="max-height: 320px; margin-bottom:12px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="text-center" style="width:50px;">NO.</th>
+                            <th>회원번호</th>
+                            <th>가맹점명 (회원명)</th>
+                            <th>납부자 연락처</th>
+                            <th class="text-center">계약상태</th>
+                            <th>사업자번호</th>
+                            <th class="text-center" style="width:110px;">연결 관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="asm_connected_tbody"></tbody>
+                </table>
+            </div>
+
+            <div style="display:flex; justify-content: flex-end; gap: 8px;">
+                <button class="btn btn-outline" onclick="closeModal('agencyStoresModal')">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 대리점 연락처 개별 등록/수정 모달 -->
     <div id="agencyContactModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header">
-                <span id="agencyContactModalTitle">대리점 세금계산서 연락처 등록</span>
+                <span id="agencyContactModalTitle">대리점 등록 및 정보 수정</span>
                 <span style="cursor:pointer;" onclick="closeModal('agencyContactModal')">✕</span>
             </div>
             <div class="form-group">
-                <label>사업자등록번호 (필수/동기화 기준키)</label>
+                <label>사업자번호 (필수)</label>
                 <input type="text" id="ac_biz_no" placeholder="예: 123-45-67890">
             </div>
-            <div class="form-group">
-                <label>대리점명 (가맹점명)</label>
-                <input type="text" id="ac_agency_name" placeholder="예: 포스뱅크">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                    <label>대리점명</label>
+                    <input type="text" id="ac_agency_name" placeholder="예: 포스뱅크">
+                </div>
+                <div class="form-group">
+                    <label>주소지</label>
+                    <input type="text" id="ac_address" placeholder="예: 서울시 강남구 테헤란로 123">
+                </div>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div class="form-group">
@@ -784,8 +881,8 @@
                     청구관리
                 </div>
                 <!-- [요청 반영] 청구관리 밑에 대리점 연락처 관리 신설 -->
-                <div class="sub-item" onclick="switchCategory('agencyContact', this, 'CMS > 대리점 연락처 관리')">
-                    대리점 연락처 관리
+                <div class="sub-item" onclick="switchCategory('agencyContact', this, 'CMS > 대리점 관리')">
+                    대리점 관리
                 </div>
             </div>
 
@@ -845,6 +942,7 @@
                 <input type="file" id="aiCustomerFileInput" accept=".xlsx, .xls" onchange="handleAiCustomerExcelUpload(this)" />
                 <input type="file" id="paymentFileInput" accept=".xlsx, .xls" onchange="handlePaymentExcelUpload(this)" />
                 <input type="file" id="billingFileInput" accept=".xlsx, .xls" onchange="handleBillingExcelUpload(this)" />
+                <input type="file" id="agencyFileInput" accept=".xlsx, .xls" onchange="handleAgencyExcelUpload(this)" />
             </div>
         </header>
 
@@ -923,6 +1021,7 @@
                             <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="deleteSelectedCustomers()">삭제</button>
                             <button class="btn btn-template editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="downloadCustomerTemplate()">양식 다운로드</button>
                             <button class="btn btn-excel editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="triggerCustomerUpload()">대량업로드</button>
+                            <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openBulkHistoryModal('customer')">대량등록 삭제</button>
                             <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="downloadSelectedExcel('customer')">엑셀 다운로드</button>
                         </div>
                     </h3>
@@ -932,6 +1031,8 @@
                                 <tr>
                                     <th class="text-center" style="width:40px;"><input type="checkbox" id="selectAllCustomer" onclick="toggleSelectAllCustomer(this)" /></th>
                                     <th class="text-center sortable" onclick="sortTable('idx', 'customer')">NO. <span class="sort-indicator" id="csort_idx"></span></th>
+                                    <th class="sortable" onclick="sortTable('agencyName', 'customer')">대리점명 <span class="sort-indicator" id="csort_agencyName"></span></th>
+                                    <th class="sortable" onclick="sortTable('agencyBizNo', 'customer')">대리점 사업자번호 <span class="sort-indicator" id="csort_agencyBizNo"></span></th>
                                     <th class="sortable" onclick="sortTable('no', 'customer')">회원번호 <span class="sort-indicator" id="csort_no"></span></th>
                                     <th class="sortable" onclick="sortTable('name', 'customer')">회원명 <span class="sort-indicator" id="csort_name"></span></th>
                                     <th class="sortable" onclick="sortTable('phone', 'customer')">납부자 휴대전화 <span class="sort-indicator" id="csort_phone"></span></th>
@@ -1008,6 +1109,7 @@
                             <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="deleteSelectedAiCustomers()">삭제</button>
                             <button class="btn btn-template editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="downloadAiCustomerTemplate()">양식 다운로드</button>
                             <button class="btn btn-excel editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="triggerAiCustomerUpload()">대량업로드</button>
+                            <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openBulkHistoryModal('aiCustomer')">대량등록 삭제</button>
                             <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="downloadSelectedExcel('aiScanner')">엑셀 다운로드</button>
                         </div>
                     </h3>
@@ -1216,32 +1318,40 @@
                 </div>
             </div>
 
-            <!-- [신규 추가] CMS > 대리점 연락처 관리 뷰 -->
+            <!-- [수정 및 확장] CMS > 대리점 관리 뷰 -->
             <div id="view-agencyContact" class="view-section">
                 <div class="content-card">
                     <h3>
-                        <span>대리점 세금계산서 담당자 연락처 관리</span>
+                        <span>대리점 종합 관리 (사업자번호 / 주소지 / 세금계산서 / 연결매장 관리)</span>
                         <div class="card-actions">
-                            <button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openAddAgencyContactModal()">+ 대리점 연락처 등록</button>
+                            <button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openAddAgencyContactModal()">+ 대리점 등록</button>
+                            <button class="btn btn-template editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="downloadAgencyTemplate()">양식 다운로드</button>
+                            <button class="btn btn-excel editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="triggerAgencyUpload()">대량업로드</button>
+                            <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openBulkHistoryModal('agency')">대량등록 삭제</button>
                             <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="downloadAgencyContactExcel()">엑셀 다운로드</button>
                         </div>
                     </h3>
-                    <div style="font-size:12px; color:#64748b; margin-bottom:14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:12px;">
-                        💡 <strong>자동 동기화 안내:</strong> 사업자번호를 키값으로 관리합니다. 여기서 연락처(이메일/전화번호)를 수정하거나 가맹점 정보창에서 입력 시, <strong>동일 사업자번호를 공유하는 전체 가맹점에 실시간 자동 동기화</strong>됩니다. 영업수수료 및 페이백 정산서 발송 시 이 연락처로 자동 전송됩니다.
+                    <div style="font-size:12px; color:#64748b; margin-bottom:14px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:12px; line-height:1.6;">
+                        💡 <strong>대리점 & 연결매장 관리 안내:</strong><br>
+                        • <strong>고유 식별:</strong> 대리점명이 동일하더라도 <strong>사업자번호</strong>로 구별됩니다. 가맹점(고객) 등록 시 대리점명과 대리점 사업자번호가 함께 매칭되어 매장이 자동 연결됩니다.<br>
+                        • <strong>연결 매장 관리:</strong> [연결 매장 수] 배지 또는 [매장관리] 버튼을 클릭하면 해당 대리점에 연결된 매장을 한눈에 확인하고, <strong>수동으로 새 매장을 추가하거나 기존 매장의 연결을 해제(삭제)</strong>할 수 있습니다.<br>
+                        • <strong>대량 업로드:</strong> [양식 다운로드] 후 사업자번호, 대리점명, 주소지를 엑셀로 한 번에 대량 업로드할 수 있습니다. (<strong>지역</strong>은 주소지 맨 앞 단어에서 자동 추출됩니다. 예: 인천 이음3로 → 인천)
                     </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th class="text-center">NO.</th>
-                                    <th>사업자등록번호 (PK)</th>
-                                    <th>대리점/가맹점명</th>
-                                    <th>연결 매장 수</th>
+                                    <th class="text-center" style="width:45px;">NO.</th>
+                                    <th>사업자번호</th>
+                                    <th>대리점명</th>
+                                    <th>지역</th>
+                                    <th>주소지</th>
+                                    <th class="text-center">연결 매장수</th>
                                     <th>세금계산서 담당자명</th>
                                     <th>담당자 전화번호</th>
                                     <th>세금계산서 수신 이메일</th>
                                     <th>비고</th>
-                                    <th class="text-center">관리</th>
+                                    <th class="text-center" style="width:130px;">관리</th>
                                 </tr>
                             </thead>
                             <tbody id="agency-contact-tbody"></tbody>
@@ -1479,6 +1589,7 @@
         // [신규] 사업자번호 키 기준 세금계산서 연락처 저장 맵
         // 형태: { "사업자번호": { bizNo, agencyName, taxName, taxPhone, taxEmail, memo } }
         let taxContactMap = {};
+        let bulkUploadHistory = [];   // [추가] 대량등록 회차 이력
 
         let commissionRateMap = {
             66000: 0,
@@ -1525,6 +1636,136 @@
         function cleanBizNo(no) {
             if (!no) return '';
             return String(no).trim().replace(/[^0-9]/g, '');
+        }
+
+
+        /* [추가] 주소지 맨 앞 단어에서 지역 추출 (예: '인천 이음3로 ...' -> '인천', '서울특별시 강남구' -> '서울') */
+        function extractRegionFromAddress(addr) {
+            const REGION_NAME_MAP = {
+                '서울':'서울','부산':'부산','대구':'대구','인천':'인천','광주':'광주','대전':'대전','울산':'울산','세종':'세종',
+                '경기':'경기','강원':'강원','충북':'충북','충남':'충남','전북':'전북','전남':'전남','경북':'경북','경남':'경남','제주':'제주',
+                '충청북':'충북','충청남':'충남','전라북':'전북','전라남':'전남','경상북':'경북','경상남':'경남'
+            };
+            let first = String(addr || '').trim().split(/\s+/)[0] || '';
+            if (!first) return '-';
+            let base = first.replace(/(특별자치시|특별자치도|특별시|광역시|자치시|자치도|시|도)$/, '');
+            return REGION_NAME_MAP[base] || '-';
+        }
+
+        /* [추가] 고객의 대리점 사업자번호 표시 (직접 입력값 우선, 없으면 대리점명이 유일하게 일치하는 대리점에서 조회) */
+        function getAgencyBizNoDisplay(item) {
+            if (item.agencyBizNo && item.agencyBizNo !== '-') return item.agencyBizNo;
+            let name = (item.agencyName || item.agency || '').trim().toLowerCase();
+            if (!name) return '-';
+            let matches = Object.values(taxContactMap).filter(a => (a.agencyName || '').trim().toLowerCase() === name);
+            return matches.length === 1 ? (matches[0].bizNo || '-') : '-';
+        }
+
+        /* [추가] 대량등록 회차 이력 / 삭제 (고객관리, AI스캐너 고객관리, 대리점 관리) */
+        function cloneObj(o) { return JSON.parse(JSON.stringify(o)); }
+        function escHtml(t) {
+            return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
+        function toArr(v) { return Array.isArray(v) ? v : (v ? Object.values(v) : []); }
+
+        function createBulkLog(type, fileName) {
+            return {
+                id: 'B' + Date.now() + Math.floor(Math.random() * 1000),
+                type: type,
+                time: new Date().toLocaleString('ko-KR'),
+                fileName: fileName || '',
+                added: [],
+                updated: []
+            };
+        }
+
+        function commitBulkLog(log) {
+            if (!log || (log.added.length + log.updated.length) === 0) return;
+            bulkUploadHistory.unshift(log);
+            if (bulkUploadHistory.length > 50) bulkUploadHistory.length = 50;
+            saveLocalStorage();
+            syncToFirebase();
+        }
+
+        let currentBulkHistoryType = 'customer';
+        const BULK_TYPE_LABEL = { customer: '고객관리', aiCustomer: 'AI스캐너 고객관리', agency: '대리점 관리' };
+
+        function openBulkHistoryModal(type) {
+            currentBulkHistoryType = type;
+            document.getElementById('bulkHistoryTitle').innerText = `대량등록 이력 / 삭제 - ${BULK_TYPE_LABEL[type] || ''}`;
+            renderBulkHistoryList();
+            openModal('bulkHistoryModal');
+        }
+
+        function renderBulkHistoryList() {
+            let container = document.getElementById('bulkHistoryListContainer');
+            if (!container) return;
+            let list = bulkUploadHistory.filter(b => b.type === currentBulkHistoryType);
+            if (list.length === 0) {
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">대량등록 이력이 없습니다.</div>`;
+                return;
+            }
+            let html = '';
+            list.forEach(b => {
+                html += `<div class="history-item" style="padding:10px 8px;">
+                    <div>
+                        <strong>[${escHtml(b.time)}]</strong> ${escHtml(b.fileName)}
+                        <div style="font-size:11px; color:#64748b; margin-top:2px;">신규 ${toArr(b.added).length}건 / 기존 갱신 ${toArr(b.updated).length}건</div>
+                    </div>
+                    <button class="btn-danger" style="font-size:11px; padding:4px 8px;" onclick="deleteBulkBatch('${escHtml(b.id)}')">이 회차 삭제</button>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function deleteBulkBatch(id) {
+            let bIdx = bulkUploadHistory.findIndex(b => b.id === id);
+            if (bIdx < 0) return;
+            let b = bulkUploadHistory[bIdx];
+            let added = toArr(b.added);
+            let updated = toArr(b.updated);
+
+            let msg = `[${b.time}] ${b.fileName}\n\n` +
+                      `• 신규 등록 ${added.length}건: 삭제${b.type === 'agency' ? '' : ' (휴지통 보관)'}\n` +
+                      `• 기존 갱신 ${updated.length}건: 업로드 이전 값으로 복원\n\n이 회차의 대량등록을 삭제하시겠습니까?`;
+            if (!confirm(msg)) return;
+
+            if (b.type === 'agency') {
+                added.forEach(k => { delete taxContactMap[k]; });
+                updated.forEach(u => { if (u && u.prev) taxContactMap[u.key] = u.prev; });
+            } else {
+                let by = currentUser ? (currentUser.name || currentUser.id) : '관리자';
+                added.forEach(cidx => {
+                    let i = customerDataList.findIndex(x => x.idx === cidx);
+                    if (i >= 0) {
+                        deletedCustomerTrashList.unshift({
+                            ...customerDataList[i],
+                            deletedAt: new Date().toLocaleString(),
+                            deletedBy: by
+                        });
+                        customerDataList.splice(i, 1);
+                    }
+                });
+                updated.forEach(u => {
+                    if (!u || !u.prev) return;
+                    let i = customerDataList.findIndex(x => x.idx === u.key);
+                    if (i >= 0) customerDataList[i] = u.prev;
+                });
+            }
+
+            bulkUploadHistory.splice(bIdx, 1);
+            saveLocalStorage();
+            syncToFirebase();
+            updateSelectOptions();
+            updateTabBadges();
+            filterCustomerTable();
+            filterAiScannerCustomerTable();
+            renderPaymentTable();
+            renderAgencyContactTable();
+            renderTrashTable();
+            renderDashboardCharts();
+            renderBulkHistoryList();
+            alert("선택하신 회차의 대량등록 데이터가 삭제되었습니다.");
         }
 
         function normalizeYM(val) {
@@ -1579,8 +1820,8 @@
 
         function downloadCustomerTemplate() {
             const templateHeader = [
-                ['회원번호', '회원명', '납부자 휴대전화', '계약상태', '상품금액', '약정일', '청구시작일', '회원구분', '영업수수료', '엑셀명', '대리점명', '납품처명', '사업자번호', '영업대표', '세금계산서담당자', '계산서전화번호', '계산서이메일'],
-                ['6568803322-00', '주식회사 곤트란쉐리에상계본점_AI스캐너', '010-2496-7015', '사용', 165000, '5일', '2026-10-01', 'AI스캐너', 44000, '곤트란쉐리에', '포스뱅크', '메트로넷', '656-88-03322', '김원식', '홍길동', '010-1234-5678', 'tax@posbank.com']
+                ['회원번호', '회원명', '납부자 휴대전화', '계약상태', '상품금액', '약정일', '청구시작일', '회원구분', '영업수수료', '엑셀명', '대리점명', '대리점 사업자번호', '납품처명', '사업자번호', '영업대표', '세금계산서담당자', '계산서전화번호', '계산서이메일'],
+                ['6568803322-00', '주식회사 곤트란쉐리에상계본점_AI스캐너', '010-2496-7015', '사용', 165000, '5일', '2026-10-01', 'AI스캐너', 44000, '곤트란쉐리에', '포스뱅크', '123-45-67890', '메트로넷', '656-88-03322', '김원식', '홍길동', '010-1234-5678', 'tax@posbank.com']
             ];
             const ws = XLSX.utils.aoa_to_sheet(templateHeader);
             const wb = XLSX.utils.book_new();
@@ -1622,8 +1863,87 @@
             XLSX.writeFile(wb, "수금관리_대량업로드_양식.xlsx");
         }
 
-        /* [요청 반영: 사업자번호 기반 세금계산서 담당자 자동 동기화 기능] */
-        function syncTaxContactByBizNo(bizNo, taxName, taxPhone, taxEmail, agencyName = '', memo = '') {
+        function triggerAgencyUpload() {
+            let input = document.getElementById('agencyFileInput');
+            if (input) { input.value = ''; input.click(); }
+        }
+
+        function downloadAgencyTemplate() {
+            const templateHeader = [
+                ['사업자번호', '대리점명', '주소지', '세금계산서담당자', '담당자전화번호', '계산서이메일', '비고'],
+                ['123-45-67890', '포스뱅크 (강남본점)', '서울특별시 강남구 테헤란로 152 강남파이낸스센터 10층', '홍길동 팀장', '010-1234-5678', 'tax@posbank.com', '본점 관리 대리점'],
+                ['987-65-43210', '포스뱅크 (수원지점)', '경기도 수원시 팔달구 효원로 200', '이수원 대리', '010-9876-5432', 'suwon@posbank.com', '동일명칭 다른 사업자번호 대리점']
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(templateHeader);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "대리점관리_양식");
+            XLSX.writeFile(wb, "대리점_대량업로드_양식.xlsx");
+        }
+
+        function handleAgencyExcelUpload(input) {
+            let file = input.files[0];
+            if (!file) return;
+            let bulkLog = createBulkLog('agency', file.name);
+
+            let reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    let data = new Uint8Array(evt.target.result);
+                    let workbook = XLSX.read(data, { type: 'array' });
+                    let worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    let json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+                    if (!json || json.length === 0) {
+                        alert("엑셀 파일에 대리점 데이터가 비어 있습니다.");
+                        return;
+                    }
+
+                    let addCount = 0;
+                    let updateCount = 0;
+
+                    json.forEach(row => {
+                        let bizNo = String(row['사업자번호'] || row['사업자등록번호'] || row['사업자 번호'] || '').trim();
+                        let agencyName = String(row['대리점/가맹점명'] || row['대리점명'] || row['가맹점명'] || row['업체명'] || '').trim();
+                        let address = String(row['주소지'] || row['주소'] || row['소재지'] || '').trim();
+                        let taxName = String(row['세금계산서담당자'] || row['담당자명'] || row['세금계산서 담당자명'] || '').trim();
+                        let taxPhone = String(row['담당자전화번호'] || row['전화번호'] || row['연락처'] || '').trim();
+                        let taxEmail = String(row['계산서이메일'] || row['이메일'] || row['세금계산서 수신 이메일'] || '').trim();
+                        let memo = String(row['비고'] || row['메모'] || '').trim();
+
+                        let key = cleanBizNo(bizNo);
+                        if (!key) return;
+
+                        if (taxContactMap[key]) {
+                            updateCount++;
+                            if (!bulkLog.updated.some(u => u.key === key)) bulkLog.updated.push({ key: key, prev: cloneObj(taxContactMap[key]) });
+                        } else {
+                            addCount++;
+                            bulkLog.added.push(key);
+                        }
+
+                        syncTaxContactByBizNo(bizNo, taxName, taxPhone, taxEmail, agencyName, memo, address);
+                    });
+
+                    saveLocalStorage();
+                    syncToFirebase();
+                    renderAgencyContactTable();
+                    updateAgencyQuickSelectOptions();
+                    filterCustomerTable();
+
+                    commitBulkLog(bulkLog);
+                    alert(`[대리점 대량업로드 완료]\n신규 등록: ${addCount}건 / 기존 정보 갱신: ${updateCount}건`);
+                } catch (err) {
+                    console.error("대리점 엑셀 파싱 에러:", err);
+                    alert("대리점 엑셀 파싱 중 오류 발생: " + err.message);
+                } finally {
+                    input.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        /* [요청 반영: 사업자번호 기반 세금계산서 및 주소지 대리점 동기화] */
+        function syncTaxContactByBizNo(bizNo, taxName, taxPhone, taxEmail, agencyName = '', memo = '', address = '') {
             let key = cleanBizNo(bizNo);
             if (!key) return;
 
@@ -1632,24 +1952,27 @@
                 bizNo: bizNo,
                 cleanKey: key,
                 agencyName: agencyName || existing.agencyName || '',
-                taxName: taxName !== undefined ? taxName : (existing.taxName || ''),
-                taxPhone: taxPhone !== undefined ? taxPhone : (existing.taxPhone || ''),
-                taxEmail: taxEmail !== undefined ? taxEmail : (existing.taxEmail || ''),
-                memo: memo !== undefined ? memo : (existing.memo || '')
+                address: address !== undefined && address !== '' ? address : (existing.address || ''),
+                taxName: taxName !== undefined && taxName !== '' ? taxName : (existing.taxName || ''),
+                taxPhone: taxPhone !== undefined && taxPhone !== '' ? taxPhone : (existing.taxPhone || ''),
+                taxEmail: taxEmail !== undefined && taxEmail !== '' ? taxEmail : (existing.taxEmail || ''),
+                memo: memo !== undefined && memo !== '' ? memo : (existing.memo || '')
             };
 
-            // 동일 사업자번호를 가진 모든 고객 데이터에 실시간 연락처 동기화
+            // 동일 사업자번호를 가진 모든 고객 데이터에 실시간 연락처/대리점 동기화
             customerDataList.forEach(c => {
-                if (cleanBizNo(c.bizNo) === key) {
-                    c.taxName = taxContactMap[key].taxName;
-                    c.taxPhone = taxContactMap[key].taxPhone;
-                    c.taxEmail = taxContactMap[key].taxEmail;
+                if (cleanBizNo(c.bizNo) === key || cleanBizNo(c.agencyBizNo) === key) {
+                    if (taxContactMap[key].taxName) c.taxName = taxContactMap[key].taxName;
+                    if (taxContactMap[key].taxPhone) c.taxPhone = taxContactMap[key].taxPhone;
+                    if (taxContactMap[key].taxEmail) c.taxEmail = taxContactMap[key].taxEmail;
+                    if (taxContactMap[key].agencyName && !c.agencyName) c.agencyName = taxContactMap[key].agencyName;
                 }
             });
 
             saveLocalStorage();
             syncToFirebase();
             renderAgencyContactTable();
+            updateAgencyQuickSelectOptions();
         }
 
         function autoFillTaxContactByBizNo(bizInputId, nameInputId, phoneInputId, emailInputId) {
@@ -1828,6 +2151,7 @@
         function handleAiCustomerExcelUpload(input) {
             let file = input.files[0];
             if (!file) return;
+            let bulkLog = createBulkLog('aiCustomer', file.name);
 
             let reader = new FileReader();
             reader.onload = function(evt) {
@@ -1851,6 +2175,7 @@
 
                         let excelName = String(row['엑셀명'] || '').trim();
                         let agencyName = String(row['대리점명'] || row['대리점'] || '').trim();
+                        let agencyBizNo = String(row['대리점 사업자번호'] || row['대리점사업자번호'] || '').trim();
                         let viscoveryName = String(row['Viscovery명'] || row['비즈커버리명'] || '').trim();
                         let qty = parseCleanInt(row['수량'], 1);
                         
@@ -1863,6 +2188,8 @@
                         let target = customerDataList.find(c => normalizeMemberNo(c.no) === memberNo);
 
                         if (target) {
+                            bulkLog.updated.push({ key: target.idx, prev: cloneObj(target) });
+                            if (agencyBizNo) target.agencyBizNo = agencyBizNo;
                             target.excelName = excelName || target.excelName;
                             target.agencyName = agencyName || target.agencyName || target.agency;
                             target.agency = target.agencyName;
@@ -1891,10 +2218,12 @@
                                 commission: commission,
                                 excelName: excelName,
                                 agencyName: agencyName,
+                                agencyBizNo: agencyBizNo,
                                 supplier: '-',
                                 bizNo: '-',
                                 manager: '-'
                             });
+                            bulkLog.added.push(customerDataList[0].idx);
                             newCount++;
                         }
                     });
@@ -1907,6 +2236,7 @@
                     filterAiScannerCustomerTable();
                     renderPaymentTable();
 
+                    commitBulkLog(bulkLog);
                     alert(`AI스캐너 연동 업로드 완료!\n기존 CMS 고객 매칭 갱신: ${matchCount}건 / 신규 등록: ${newCount}건`);
                 } catch (err) {
                     console.error("AI스캐너 엑셀 연동 에러:", err);
@@ -1921,6 +2251,7 @@
         function handleCustomerExcelUpload(input) {
             let file = input.files[0];
             if (!file) return;
+            let bulkLog = createBulkLog('customer', file.name);
 
             let reader = new FileReader();
             reader.onload = function(evt) {
@@ -1951,6 +2282,7 @@
                         let commission = parseCleanInt(row['영업수수료'], 0);
                         let excelName = String(row['엑셀명'] || '').trim();
                         let agencyName = String(row['대리점명'] || row['대리점'] || '').trim();
+                        let agencyBizNo = String(row['대리점 사업자번호'] || row['대리점사업자번호'] || row['대리점 사업자등록번호'] || '').trim();
 
                         let supplier = String(row['납품처명'] || row['납품처'] || '-').trim();
                         let bizNo = String(row['사업자번호'] || row['사업자 번호'] || row['가맹점'] || '-').trim();
@@ -1974,6 +2306,7 @@
                         let existingIndex = customerDataList.findIndex(c => normalizeMemberNo(c.no) === memberNo);
 
                         if (existingIndex >= 0) {
+                            bulkLog.updated.push({ key: customerDataList[existingIndex].idx, prev: cloneObj(customerDataList[existingIndex]) });
                             customerDataList[existingIndex].name = memberName || customerDataList[existingIndex].name;
                             customerDataList[existingIndex].phone = phone || customerDataList[existingIndex].phone;
                             customerDataList[existingIndex].status = status;
@@ -1984,6 +2317,7 @@
                             customerDataList[existingIndex].commission = commission;
                             customerDataList[existingIndex].excelName = excelName;
                             customerDataList[existingIndex].agencyName = agencyName;
+                            customerDataList[existingIndex].agencyBizNo = agencyBizNo || customerDataList[existingIndex].agencyBizNo || '';
                             customerDataList[existingIndex].supplier = supplier;
                             customerDataList[existingIndex].bizNo = bizNo;
                             customerDataList[existingIndex].manager = manager;
@@ -2005,6 +2339,7 @@
                                 commission: commission,
                                 excelName: excelName,
                                 agencyName: agencyName,
+                                agencyBizNo: agencyBizNo,
                                 supplier: supplier,
                                 bizNo: bizNo,
                                 manager: manager,
@@ -2012,6 +2347,7 @@
                                 taxPhone: taxPhone,
                                 taxEmail: taxEmail
                             });
+                            bulkLog.added.push(customerDataList[0].idx);
                             addCount++;
                         }
                     });
@@ -2025,6 +2361,7 @@
                     renderPaymentTable();
                     renderAgencyContactTable();
 
+                    commitBulkLog(bulkLog);
                     alert(`고객 대량업로드 완료!\n총 ${addCount + updateCount}건 반영 (신규: ${addCount}건 / 갱신: ${updateCount}건)`);
                 } catch (err) {
                     console.error("고객 엑셀 파싱 에러:", err);
@@ -2236,6 +2573,8 @@
                 if (savedBatch) uploadBatchList = JSON.parse(savedBatch);
                 if (savedTrash) deletedCustomerTrashList = JSON.parse(savedTrash);
                 if (savedTaxContacts) taxContactMap = JSON.parse(savedTaxContacts);
+                let savedBulkHistory = localStorage.getItem('cms_bulk_history');
+                if (savedBulkHistory) bulkUploadHistory = JSON.parse(savedBulkHistory);
 
                 customerDataList.forEach(c => {
                     c.no = normalizeMemberNo(c.no);
@@ -2353,6 +2692,7 @@
                         payEditLogMap = data.payLogs || payEditLogMap;
                         uploadBatchList = data.batches || uploadBatchList;
                         deletedCustomerTrashList = data.trash || deletedCustomerTrashList;
+                        bulkUploadHistory = data.bulkHistory ? toArr(data.bulkHistory) : bulkUploadHistory;
 
                         saveLocalStorage();
                         updateAuthUI();
@@ -2404,7 +2744,8 @@
                     custLogs: custEditLogMap,
                     payLogs: payEditLogMap,
                     batches: uploadBatchList,
-                    trash: deletedCustomerTrashList
+                    trash: deletedCustomerTrashList,
+                    bulkHistory: bulkUploadHistory
                 }).catch(err => {
                     console.warn("Firebase set write error:", err);
                 });
@@ -2426,6 +2767,7 @@
                 localStorage.setItem('cms_pay_log', JSON.stringify(payEditLogMap));
                 localStorage.setItem('cms_upload_batch', JSON.stringify(uploadBatchList));
                 localStorage.setItem('cms_trash_list', JSON.stringify(deletedCustomerTrashList));
+                localStorage.setItem('cms_bulk_history', JSON.stringify(bulkUploadHistory));
             } catch (e) {
                 console.warn("LocalStorage 저장 예외:", e);
             }
@@ -3053,7 +3395,9 @@
                                     (item.phone || '').toLowerCase().includes(query) ||
                                     (item.supplier || '').toLowerCase().includes(query) ||
                                     (item.bizNo || '').toLowerCase().includes(query) ||
-                                    (item.manager || '').toLowerCase().includes(query);
+                                    (item.manager || '').toLowerCase().includes(query) ||
+                                    (item.agencyName || item.agency || '').toLowerCase().includes(query) ||
+                                    (item.agencyBizNo || '').toLowerCase().includes(query);
 
                 let matchesStatus = (selectedStatus === 'ALL') || (item.status === selectedStatus);
                 let matchesType = (selectedType === 'ALL') || (item.type === selectedType);
@@ -3319,6 +3663,8 @@
                 tbody += `<tr>
                     <td class="text-center"><input type="checkbox" class="cust-check" value="${item.idx}" /></td>
                     <td class="text-center">${item.idx}</td>
+                    <td style="font-weight:600; color:#0f172a;">${item.agencyName || item.agency || '-'}</td>
+                    <td>${getAgencyBizNoDisplay(item)}</td>
                     <td class="clickable-cell" onclick="openDetailModal(${item.idx})" title="고객 세부내역 창 열기" style="color:#2563eb; text-decoration:underline;">${item.no}</td>
                     <td><div>${item.name}</div></td>
                     <td>${item.phone}</td>
@@ -3388,20 +3734,37 @@
             if (masterCb) masterCb.checked = false;
         }
 
-        /* [요청 반영: 대리점 세금계산서 연락처 관리 테이블 렌더링] */
+        /* [확장] 대리점 관리 (사업자번호, 대리점명, 주소지, 연결매장 관리) */
+        function getStoresLinkedToAgency(agencyKey) {
+            let agency = taxContactMap[agencyKey];
+            if (!agency) return [];
+            let agencyBizClean = cleanBizNo(agency.bizNo);
+            let agencyNameClean = (agency.agencyName || '').trim().toLowerCase();
+
+            return customerDataList.filter(c => {
+                // 1순위: 대리점 사업자번호 매칭
+                if (c.agencyBizNo && cleanBizNo(c.agencyBizNo) === agencyBizClean) return true;
+                // 2순위: 가맹점 자체 사업자번호가 대리점 사업자번호와 일치하는 경우
+                if (c.bizNo && cleanBizNo(c.bizNo) === agencyBizClean) return true;
+                // 3순위: 대리점명이 동일한 경우
+                if (agencyNameClean && c.agencyName && c.agencyName.trim().toLowerCase() === agencyNameClean) return true;
+                return false;
+            });
+        }
+
         function renderAgencyContactTable() {
             let tbody = '';
-            let bizKeys = Object.keys(taxContactMap);
             let query = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
 
             // 가맹점 목록에서 등록된 사업자번호들 자동 취합
             customerDataList.forEach(c => {
-                let k = cleanBizNo(c.bizNo);
+                let k = cleanBizNo(c.agencyBizNo || c.bizNo);
                 if (k && !taxContactMap[k]) {
                     taxContactMap[k] = {
-                        bizNo: c.bizNo,
+                        bizNo: c.agencyBizNo || c.bizNo,
                         cleanKey: k,
                         agencyName: c.agencyName || c.supplier || c.name || '',
+                        address: '',
                         taxName: c.taxName || '',
                         taxPhone: c.taxPhone || '',
                         taxEmail: c.taxEmail || '',
@@ -3415,6 +3778,8 @@
                 list = list.filter(item => 
                     (item.bizNo || '').toLowerCase().includes(query) ||
                     (item.agencyName || '').toLowerCase().includes(query) ||
+                    (item.address || '').toLowerCase().includes(query) ||
+                    extractRegionFromAddress(item.address).toLowerCase().includes(query) ||
                     (item.taxName || '').toLowerCase().includes(query) ||
                     (item.taxPhone || '').toLowerCase().includes(query) ||
                     (item.taxEmail || '').toLowerCase().includes(query)
@@ -3422,25 +3787,34 @@
             }
 
             if (list.length === 0) {
-                tbody = `<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:30px;">등록된 대리점 세금계산서 연락처가 없습니다.</td></tr>`;
+                tbody = `<tr><td colspan="11" style="text-align:center; color:#94a3b8; padding:30px;">등록된 대리점이 없습니다. [양식 다운로드] 후 대량업로드하거나 [+ 대리점 등록]을 진행해 주세요.</td></tr>`;
             } else {
                 list.forEach((item, idx) => {
                     let k = item.cleanKey || cleanBizNo(item.bizNo);
-                    let linkedStores = customerDataList.filter(c => cleanBizNo(c.bizNo) === k);
+                    let linkedStores = getStoresLinkedToAgency(k);
                     let storeCount = linkedStores.length;
                     let displayAgencyName = item.agencyName || (linkedStores[0] ? (linkedStores[0].agencyName || linkedStores[0].supplier || linkedStores[0].name) : '-');
 
                     tbody += `<tr>
                         <td class="text-center">${idx + 1}</td>
                         <td><strong style="color:#0f172a;">${item.bizNo}</strong></td>
-                        <td>${displayAgencyName}</td>
-                        <td class="text-center"><span class="badge-status badge-use">${storeCount}개 매장 연동</span></td>
+                        <td style="font-weight:700; color:#1e293b;">${displayAgencyName}</td>
+                        <td class="text-center" style="font-weight:600; color:#0f172a;">${extractRegionFromAddress(item.address)}</td>
+                        <td style="font-size:11.5px; color:#475569; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.address || '-'}">${item.address || '-'}</td>
+                        <td class="text-center">
+                            <button class="btn-action" style="background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; font-weight:700;" onclick="openAgencyStoresModal('${k}')" title="연결 매장 목록 확인 및 수동 추가/삭제">
+                                🔗 ${storeCount}개 매장 연동 [관리]
+                            </button>
+                        </td>
                         <td><strong>${item.taxName || '-'}</strong></td>
                         <td>${item.taxPhone || '-'}</td>
                         <td style="color:#2563eb;">${item.taxEmail || '-'}</td>
                         <td style="color:#64748b; font-size:11px;">${item.memo || '-'}</td>
                         <td class="text-center">
-                            <button class="btn-action" style="color:#2563eb;" onclick="openEditAgencyContactModal('${k}')">수정/동기화</button>
+                            <div style="display:inline-flex; gap:4px;">
+                                <button class="btn-action" style="color:#2563eb;" onclick="openEditAgencyContactModal('${k}')">수정</button>
+                                <button class="btn-action" style="color:#dc2626;" onclick="deleteAgencyItem('${k}')">삭제</button>
+                            </div>
                         </td>
                     </tr>`;
                 });
@@ -3448,13 +3822,28 @@
 
             let el = document.getElementById('agency-contact-tbody');
             if (el) el.innerHTML = tbody;
+            updateAgencyQuickSelectOptions();
+        }
+
+        function deleteAgencyItem(cleanKey) {
+            let item = taxContactMap[cleanKey];
+            if (!item) return;
+
+            if (!confirm(`[${item.agencyName || item.bizNo}] 대리점을 삭제하시겠습니까?\n(연결된 가맹점 매장은 유지되지만 대리점 연동 정보가 해제됩니다)`)) return;
+
+            delete taxContactMap[cleanKey];
+            saveLocalStorage();
+            syncToFirebase();
+            renderAgencyContactTable();
+            alert("대리점 정보가 삭제되었습니다.");
         }
 
         function openAddAgencyContactModal() {
-            document.getElementById('agencyContactModalTitle').innerText = '대리점 세금계산서 연락처 신규 등록';
+            document.getElementById('agencyContactModalTitle').innerText = '신규 대리점 등록';
             document.getElementById('ac_biz_no').value = '';
             document.getElementById('ac_biz_no').readOnly = false;
             document.getElementById('ac_agency_name').value = '';
+            document.getElementById('ac_address').value = '';
             document.getElementById('ac_tax_name').value = '';
             document.getElementById('ac_tax_phone').value = '';
             document.getElementById('ac_tax_email').value = '';
@@ -3466,10 +3855,11 @@
             let item = taxContactMap[cleanKey];
             if (!item) return;
 
-            document.getElementById('agencyContactModalTitle').innerText = `대리점 세금계산서 연락처 수정 [${item.bizNo}]`;
+            document.getElementById('agencyContactModalTitle').innerText = `대리점 정보 수정 [${item.bizNo}]`;
             document.getElementById('ac_biz_no').value = item.bizNo;
             document.getElementById('ac_biz_no').readOnly = true;
             document.getElementById('ac_agency_name').value = item.agencyName || '';
+            document.getElementById('ac_address').value = item.address || '';
             document.getElementById('ac_tax_name').value = item.taxName || '';
             document.getElementById('ac_tax_phone').value = item.taxPhone || '';
             document.getElementById('ac_tax_email').value = item.taxEmail || '';
@@ -3480,36 +3870,39 @@
         function saveAgencyContactModal() {
             let bizNo = document.getElementById('ac_biz_no').value.trim();
             let agencyName = document.getElementById('ac_agency_name').value.trim();
+            let address = document.getElementById('ac_address').value.trim();
             let taxName = document.getElementById('ac_tax_name').value.trim();
             let taxPhone = document.getElementById('ac_tax_phone').value.trim();
             let taxEmail = document.getElementById('ac_tax_email').value.trim();
             let memo = document.getElementById('ac_memo').value.trim();
 
             if (!bizNo) {
-                alert("사업자등록번호는 필수 키값입니다.");
+                alert("사업자번호는 필수 입력값입니다.");
                 return;
             }
 
-            syncTaxContactByBizNo(bizNo, taxName, taxPhone, taxEmail, agencyName, memo);
+            syncTaxContactByBizNo(bizNo, taxName, taxPhone, taxEmail, agencyName, memo, address);
             closeModal('agencyContactModal');
             filterCustomerTable();
-            alert(`[${bizNo}] 대리점 세금계산서 연락처가 등록/수정되었으며, 해당 사업자번호의 모든 가맹점에 자동 동기화되었습니다.`);
+            alert(`[${bizNo}] 대리점 정보가 저장되었으며, 연결된 가맹점과 자동 동기화되었습니다.`);
         }
 
         function downloadAgencyContactExcel() {
             let list = Object.values(taxContactMap);
             if (list.length === 0) {
-                alert("다운로드할 연락처 데이터가 없습니다.");
+                alert("다운로드할 대리점 데이터가 없습니다.");
                 return;
             }
 
             let excelRows = list.map((item, idx) => {
                 let k = item.cleanKey || cleanBizNo(item.bizNo);
-                let linkedStores = customerDataList.filter(c => cleanBizNo(c.bizNo) === k);
+                let linkedStores = getStoresLinkedToAgency(k);
                 return {
                     'NO.': idx + 1,
-                    '사업자등록번호': item.bizNo,
+                    '사업자번호': item.bizNo,
                     '대리점명': item.agencyName || (linkedStores[0] ? (linkedStores[0].agencyName || linkedStores[0].supplier) : '-'),
+                    '지역': extractRegionFromAddress(item.address),
+                    '주소지': item.address || '-',
                     '연결 매장수': linkedStores.length,
                     '세금계산서 담당자명': item.taxName || '-',
                     '전화번호': item.taxPhone || '-',
@@ -3520,8 +3913,157 @@
 
             let ws = XLSX.utils.json_to_sheet(excelRows);
             let wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "대리점연락처관리");
-            XLSX.writeFile(wb, "대리점_세금계산서_연락처목록.xlsx");
+            XLSX.utils.book_append_sheet(wb, ws, "대리점관리");
+            XLSX.writeFile(wb, "대리점_종합관리_목록.xlsx");
+        }
+
+        /* [요청 반영: 대리점 연결 매장 수동 등록 및 해제(삭제) 기능] */
+        function openAgencyStoresModal(agencyKey) {
+            let agency = taxContactMap[agencyKey];
+            if (!agency) return;
+
+            document.getElementById('asm_agency_key').value = agencyKey;
+            document.getElementById('asm_agency_name').innerText = agency.agencyName || '대리점';
+            document.getElementById('asm_agency_biz').innerText = agency.bizNo;
+            document.getElementById('agencyStoresModalTitle').innerText = `[${agency.agencyName || agency.bizNo}] 연결 매장 관리`;
+
+            renderAgencyStoresModalList(agencyKey);
+            populateAvailableStoresDropdown(agencyKey);
+            openModal('agencyStoresModal');
+        }
+
+        function renderAgencyStoresModalList(agencyKey) {
+            let agency = taxContactMap[agencyKey];
+            if (!agency) return;
+
+            let linkedStores = getStoresLinkedToAgency(agencyKey);
+            document.getElementById('asm_agency_count').innerText = `${linkedStores.length}곳`;
+
+            let tbody = '';
+            if (linkedStores.length === 0) {
+                tbody = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">이 대리점에 연결된 매장이 아직 없습니다. 아래에서 기존 매장을 선택해 수동 연결할 수 있습니다.</td></tr>`;
+            } else {
+                linkedStores.forEach((s, idx) => {
+                    let statusBadge = s.status === '사용' ? '<span class="badge-status badge-use">사용</span>' : '<span class="badge-status badge-stop">'+s.status+'</span>';
+                    tbody += `<tr>
+                        <td class="text-center">${idx + 1}</td>
+                        <td style="font-weight:700; color:#2563eb;">${s.no}</td>
+                        <td style="font-weight:600;">${s.name}</td>
+                        <td>${s.phone || '-'}</td>
+                        <td class="text-center">${statusBadge}</td>
+                        <td>${s.bizNo || '-'}</td>
+                        <td class="text-center">
+                            <button class="btn-danger editable-only" style="padding:3px 8px; font-size:11px;" onclick="removeStoreFromAgency('${s.no}', '${agencyKey}')">연결 해제</button>
+                        </td>
+                    </tr>`;
+                });
+            }
+            document.getElementById('asm_connected_tbody').innerHTML = tbody;
+        }
+
+        function populateAvailableStoresDropdown(agencyKey) {
+            let select = document.getElementById('asm_target_customer_select');
+            if (!select) return;
+
+            let linkedStores = getStoresLinkedToAgency(agencyKey);
+            let linkedNos = new Set(linkedStores.map(s => normalizeMemberNo(s.no)));
+
+            let unlinkedStores = customerDataList.filter(c => !linkedNos.has(normalizeMemberNo(c.no)));
+
+            let html = '<option value="">-- 연결할 가맹점 매장을 선택하세요 (회원번호 / 가맹점명) --</option>';
+            unlinkedStores.forEach(c => {
+                let currentAgencyStr = c.agencyName ? ` (현재: ${c.agencyName})` : '';
+                html += `<option value="${c.no}">[${c.no}] ${c.name} (사업자: ${c.bizNo || '없음'})${currentAgencyStr}</option>`;
+            });
+            select.innerHTML = html;
+        }
+
+        function addStoreToAgencyManually() {
+            let agencyKey = document.getElementById('asm_agency_key').value;
+            let agency = taxContactMap[agencyKey];
+            let custNo = document.getElementById('asm_target_customer_select').value;
+
+            if (!agency || !custNo) {
+                alert("연결할 매장(가맹점)을 선택해 주세요.");
+                return;
+            }
+
+            let cust = customerDataList.find(c => normalizeMemberNo(c.no) === normalizeMemberNo(custNo));
+            if (!cust) return;
+
+            // 매장에 대리점 정보 명시적 귀속
+            cust.agencyBizNo = agency.bizNo;
+            cust.agencyName = agency.agencyName;
+            cust.agency = agency.agencyName;
+            if (agency.taxName) cust.taxName = agency.taxName;
+            if (agency.taxPhone) cust.taxPhone = agency.taxPhone;
+            if (agency.taxEmail) cust.taxEmail = agency.taxEmail;
+
+            logEditRecord('CUST', cust.no, `[대리점 연결] 대리점 '${agency.agencyName || agency.bizNo}'(사업자: ${agency.bizNo})에 수동 연결됨`);
+
+            saveLocalStorage();
+            syncToFirebase();
+            renderAgencyStoresModalList(agencyKey);
+            populateAvailableStoresDropdown(agencyKey);
+            renderAgencyContactTable();
+            filterCustomerTable();
+            filterAiScannerCustomerTable();
+            alert(`[${cust.name}] 매장이 '${agency.agencyName || agency.bizNo}' 대리점에 정상적으로 연결되었습니다.`);
+        }
+
+        function removeStoreFromAgency(custNo, agencyKey) {
+            let agency = taxContactMap[agencyKey];
+            let cust = customerDataList.find(c => normalizeMemberNo(c.no) === normalizeMemberNo(custNo));
+            if (!cust) return;
+
+            if (!confirm(`[${cust.name}] 매장을 이 대리점(${agency.agencyName || agency.bizNo})과의 연결에서 해제하시겠습니까?`)) return;
+
+            cust.agencyBizNo = '';
+            cust.agencyName = '';
+            cust.agency = '';
+
+            logEditRecord('CUST', cust.no, `[대리점 연결해제] '${agency.agencyName || agency.bizNo}' 대리점과의 연결이 해제됨`);
+
+            saveLocalStorage();
+            syncToFirebase();
+            renderAgencyStoresModalList(agencyKey);
+            populateAvailableStoresDropdown(agencyKey);
+            renderAgencyContactTable();
+            filterCustomerTable();
+            filterAiScannerCustomerTable();
+            alert(`[${cust.name}] 매장의 대리점 연결이 해제되었습니다.`);
+        }
+
+        /* [요청 반영: 대리점명이 동일할 때 구별을 위한 퀵 셀렉트 헬퍼] */
+        function updateAgencyQuickSelectOptions() {
+            const selects = ['m_agency_quick_select', 'edit_agency_quick_select'];
+            let optionsHtml = '<option value="">대리점 선택(자동입력)</option>';
+
+            Object.values(taxContactMap).forEach(ag => {
+                let label = `${ag.agencyName || '미지정 대리점'} (${ag.bizNo})`;
+                optionsHtml += `<option value="${ag.cleanKey}">${label}</option>`;
+            });
+
+            selects.forEach(id => {
+                let el = document.getElementById(id);
+                if (el) el.innerHTML = optionsHtml;
+            });
+        }
+
+        function applyQuickAgencySelect(selectId, agencyNameInputId, bizNoInputId, taxNameId, taxPhoneId, taxEmailId, agencyBizInputId) {
+            let sel = document.getElementById(selectId);
+            let cleanKey = sel.value;
+            if (!cleanKey || !taxContactMap[cleanKey]) return;
+
+            let ag = taxContactMap[cleanKey];
+            if (ag.agencyName) document.getElementById(agencyNameInputId).value = ag.agencyName;
+            if (agencyBizInputId && document.getElementById(agencyBizInputId)) document.getElementById(agencyBizInputId).value = ag.bizNo || '';
+            if (ag.bizNo && (!document.getElementById(bizNoInputId).value || document.getElementById(bizNoInputId).value === '-')) {
+                document.getElementById(bizNoInputId).value = ag.bizNo;
+            }
+            if (ag.taxName) document.getElementById(taxNameId).value = ag.taxName;
+            if (ag.taxPhone) document.getElementById(taxPhoneId).value = ag.taxPhone;
+            if (ag.taxEmail) document.getElementById(taxEmailId).value = ag.taxEmail;
         }
 
         function deleteSelectedAiCustomers() {
@@ -3571,6 +4113,7 @@
             document.getElementById('edit_commission').value = item.commission || '';
             document.getElementById('edit_excel_name').value = item.excelName || '';
             document.getElementById('edit_agency_name').value = item.agencyName || item.agency || '';
+            document.getElementById('edit_agency_biz_no').value = item.agencyBizNo || '';
             document.getElementById('edit_viscovery_name').value = item.viscoveryName || '';
             document.getElementById('edit_qty').value = item.qty !== undefined ? item.qty : 1;
             
@@ -4101,6 +4644,7 @@
             item.commission = parseCleanInt(document.getElementById('edit_commission').value, 0);
             item.excelName = document.getElementById('edit_excel_name').value.trim();
             item.agencyName = document.getElementById('edit_agency_name').value.trim();
+            item.agencyBizNo = document.getElementById('edit_agency_biz_no').value.trim();
             item.agency = item.agencyName; 
             item.viscoveryName = document.getElementById('edit_viscovery_name').value.trim();
             item.qty = parseCleanInt(document.getElementById('edit_qty').value, 1);
@@ -4304,6 +4848,8 @@
                     let tInfo = (k && taxContactMap[k]) ? taxContactMap[k] : { taxName: item.taxName, taxPhone: item.taxPhone, taxEmail: item.taxEmail };
                     return {
                         'NO.': item.idx,
+                        '대리점명': item.agencyName || item.agency || '-',
+                        '대리점 사업자번호': getAgencyBizNoDisplay(item),
                         '회원번호': item.no,
                         '회원명': item.name,
                         '납부자 휴대전화': item.phone,
@@ -4406,6 +4952,7 @@
                 commission: parseCleanInt(document.getElementById('m_commission').value, 0),
                 excelName: document.getElementById('m_excel_name').value.trim() || '',
                 agencyName: agencyName,
+                agencyBizNo: document.getElementById('m_agency_biz_no').value.trim(),
                 agency: agencyName,
                 supplier: document.getElementById('m_supplier').value.trim() || '-',
                 bizNo: bizNo,
