@@ -421,6 +421,11 @@
                 <div class="form-group"><label>사업자번호</label><input type="text" id="m_biz_no" placeholder="예: 123-45-67890"></div>
                 <div class="form-group"><label>영업대표</label><input type="text" id="m_manager" placeholder="예: 오성현L"></div>
             </div>
+            <!-- 세금계산서 담당자 연락처 추가 -->
+            <div class="form-group" style="background:#f1f5f9; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                <label style="color:#0f172a; margin-bottom:2px;">세금계산서 담당자 연락처 (전화번호 또는 이메일)</label>
+                <input type="text" id="m_tax_contact" placeholder="010-0000-0000 또는 tax@agency.com (동일 사업자번호 자동 동기화)">
+            </div>
             <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
                 <button class="btn btn-outline" onclick="closeModal('customerModal')">취소</button>
                 <button class="btn btn-primary" onclick="saveManualCustomer()">등록 저장</button>
@@ -480,6 +485,14 @@
                 <div class="form-group"><label>사업자번호</label><input type="text" id="edit_biz_no"></div>
                 <div class="form-group"><label>영업대표</label><input type="text" id="edit_manager"></div>
             </div>
+            <!-- 세금계산서 담당자 연락처 수정 입력란 -->
+            <div class="form-group" style="background:#f1f5f9; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <label style="color:#0f172a; margin:0; font-weight:700;">세금계산서 담당자 연락처 (전화번호 또는 이메일)</label>
+                    <span style="font-size:11px; color:#2563eb; font-weight:600;">* 저장 시 동일 사업자번호 전체 매장 일괄 동기화</span>
+                </div>
+                <input type="text" id="edit_tax_contact" placeholder="010-0000-0000 또는 tax@agency.com">
+            </div>
 
             <div style="margin-top:16px; border-top:1px solid #e2e8f0; padding-top:10px;">
                 <div style="font-size:12px; font-weight:700; color:#0f172a;">📝 수정 및 변경 이력 로그 (누가 수정했는지 확인)</div>
@@ -520,6 +533,36 @@
             <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
                 <button class="btn btn-outline" onclick="closeModal('billingModal')">취소</button>
                 <button class="btn btn-primary" onclick="saveManualBilling()">청구 등록 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 대리점 연락처 개별 등록/수정 모달 -->
+    <div id="agencyContactModal" class="modal-overlay">
+        <div class="modal-card" style="width: 480px;">
+            <div class="modal-header">
+                <span id="agencyContactModalTitle">대리점 세금계산서 연락처 등록</span>
+                <span style="cursor:pointer;" onclick="closeModal('agencyContactModal')">✕</span>
+            </div>
+            <div class="form-group">
+                <label>사업자번호</label>
+                <input type="text" id="ac_biz_no" placeholder="예: 123-45-67890 (숫자만 입력 가능)">
+            </div>
+            <div class="form-group">
+                <label>대리점명 / 납품처명</label>
+                <input type="text" id="ac_agency_name" placeholder="대리점명 또는 상호명 입력">
+            </div>
+            <div class="form-group">
+                <label>세금계산서 담당자 연락처 (휴대전화 번호 또는 이메일)</label>
+                <input type="text" id="ac_tax_contact" placeholder="010-0000-0000 또는 tax@agency.com">
+            </div>
+            <div class="form-group">
+                <label>비고 및 메모</label>
+                <input type="text" id="ac_memo" placeholder="정산 및 세금계산서 발행 관련 특이사항">
+            </div>
+            <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+                <button class="btn btn-outline" onclick="closeModal('agencyContactModal')">취소</button>
+                <button class="btn btn-primary editable-only" onclick="saveAgencyContactRecord()">연락처 저장 및 일괄 동기화</button>
             </div>
         </div>
     </div>
@@ -720,6 +763,10 @@
                 <div class="sub-item" onclick="switchCategory('billing', this, 'CMS > 청구관리')">
                     청구관리
                 </div>
+                <!-- 요청 반영: 청구관리 바로 밑에 [대리점 연락처 관리] 추가 -->
+                <div class="sub-item" onclick="switchCategory('agencyContact', this, 'CMS > 대리점 연락처 관리')">
+                    대리점 연락처 관리
+                </div>
             </div>
 
             <div class="parent-menu open" onclick="toggleParent(this)">
@@ -766,7 +813,7 @@
             <div class="header-title" id="page-title">전체 현황 대시보드</div>
             <div class="header-actions">
                 <div class="search-box">
-                    <input type="text" id="searchInput" onkeyup="onGlobalSearch()" placeholder="회원번호, 회원명, 사업자번호, 납품처명 검색..." />
+                    <input type="text" id="searchInput" onkeyup="onGlobalSearch()" placeholder="회원번호, 회원명, 사업자번호, 납품처명, 대리점 검색..." />
                 </div>
 
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -874,6 +921,7 @@
                                     <th class="sortable" onclick="sortTable('type', 'customer')">회원구분 <span class="sort-indicator" id="csort_type"></span></th>
                                     <th class="sortable" onclick="sortTable('supplier', 'customer')">납품처명 <span class="sort-indicator" id="csort_supplier"></span></th>
                                     <th class="sortable" onclick="sortTable('bizNo', 'customer')">사업자번호 <span class="sort-indicator" id="csort_bizNo"></span></th>
+                                    <th class="sortable" onclick="sortTable('taxContact', 'customer')">세금계산서 연락처 <span class="sort-indicator" id="csort_taxContact"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'customer')">영업대표 <span class="sort-indicator" id="csort_manager"></span></th>
                                     <th class="text-center">관련서류</th>
                                     <th class="text-center">상담내역</th>
@@ -964,6 +1012,7 @@
                                     <th class="text-right sortable" onclick="sortTable('commission', 'aiScannerCustomer')">영업수수료 <span class="sort-indicator" id="aisort_commission"></span></th>
                                     <th class="sortable" onclick="sortTable('supplier', 'aiScannerCustomer')">납품처명 <span class="sort-indicator" id="aisort_supplier"></span></th>
                                     <th class="sortable" onclick="sortTable('bizNo', 'aiScannerCustomer')">사업자번호 <span class="sort-indicator" id="aisort_bizNo"></span></th>
+                                    <th class="sortable" onclick="sortTable('taxContact', 'aiScannerCustomer')">세금계산서 연락처 <span class="sort-indicator" id="aisort_taxContact"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'aiScannerCustomer')">영업대표 <span class="sort-indicator" id="aisort_manager"></span></th>
                                     <th class="text-center">관련서류</th>
                                     <th class="text-center">상담내역</th>
@@ -994,10 +1043,8 @@
                     <div class="filter-dropdown-row">
                         <div class="filter-group">
                             <label>조회 연월:</label>
+                            <!-- 동적 생성 드롭다운 -->
                             <select id="paySelectMonth" class="filter-select" onchange="filterPaymentTable()">
-                                <option value="2026-10">2026년 10월</option>
-                                <option value="2026-09">2026년 09월</option>
-                                <option value="2026-08">2026년 08월</option>
                             </select>
                         </div>
                         <div class="filter-group">
@@ -1051,17 +1098,17 @@
                         </div>
                         <div class="summary-total-divider"></div>
                         <div class="summary-total-item">
-                            <span class="summary-total-label">총 청구금액</span>
+                            <span class="summary-total-label">선택월 총 청구금액</span>
                             <span class="summary-total-value" id="paySum_bill" style="color:#2563eb;">0 원</span>
                         </div>
                         <div class="summary-total-divider"></div>
                         <div class="summary-total-item">
-                            <span class="summary-total-label">총 수납금액</span>
+                            <span class="summary-total-label">선택월 총 수납금액</span>
                             <span class="summary-total-value" id="paySum_paid">0 원</span>
                         </div>
                         <div class="summary-total-divider"></div>
                         <div class="summary-total-item">
-                            <span class="summary-total-label">총 미납금액</span>
+                            <span class="summary-total-label">선택월 총 미납금액</span>
                             <span class="summary-total-value" id="paySum_unpaid" style="color:#dc2626;">0 원</span>
                         </div>
                     </div>
@@ -1076,6 +1123,7 @@
                                     <th class="sortable" onclick="sortTable('status', 'payment')">계약상태 <span class="sort-indicator" id="psort_status"></span></th>
                                     <th class="sortable" onclick="sortTable('supplier', 'payment')">납품처명 <span class="sort-indicator" id="psort_supplier"></span></th>
                                     <th class="sortable" onclick="sortTable('bizNo', 'payment')">사업자번호 <span class="sort-indicator" id="psort_bizNo"></span></th>
+                                    <th class="sortable" onclick="sortTable('taxContact', 'payment')">세금계산서 연락처 <span class="sort-indicator" id="psort_taxContact"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'payment')">영업대표 <span class="sort-indicator" id="psort_manager"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('amount', 'payment')">청구금액 (결제일) <span class="sort-indicator" id="psort_amount"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('paid', 'payment')">수납금액 (정산일) <span class="sort-indicator" id="psort_paid"></span></th>
@@ -1145,6 +1193,39 @@
                             </thead>
                             <tbody id="billing-table-body"></tbody>
                             <tfoot id="billing-table-tfoot"></tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 신규 추가: [CMS > 대리점 연락처 관리] 뷰 -->
+            <div id="view-agencyContact" class="view-section">
+                <div class="content-card">
+                    <h3>
+                        <span>대리점 세금계산서 담당자 연락처 관리</span>
+                        <div class="card-actions">
+                            <button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openAgencyContactModal()">+ 대리점 연락처 추가</button>
+                            <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="downloadAgencyContactExcel()">엑셀 다운로드</button>
+                        </div>
+                    </h3>
+                    <div style="font-size:12px; color:#64748b; margin-bottom:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; line-height:1.6;">
+                        * <strong>자동 동기화 안내</strong>: 여기서 등록/수정한 세금계산서 담당자 연락처(휴대전화 또는 이메일)는 <strong>동일한 사업자번호를 가진 모든 가맹점에 자동으로 일괄 반영</strong>됩니다.<br>
+                        * 반대로 가맹점 정보 수정 창에서 연락처를 변경해도 이곳에 자동 업데이트되어 <strong>AI스캐너 영업수수료 정산 및 CMS 페이백 정산 시 그대로 연동</strong>됩니다.
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th class="text-center" style="width:50px;">NO.</th>
+                                    <th>사업자번호</th>
+                                    <th>대리점명 / 상호명</th>
+                                    <th class="text-center">연결된 가맹점 수</th>
+                                    <th>세금계산서 담당자 연락처 (전화번호/이메일)</th>
+                                    <th>비고</th>
+                                    <th class="text-center" style="width:120px;">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="agency-contact-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -1368,6 +1449,7 @@
         let customerDataList = [];
         let paymentDataMap = {}; 
         let billingDataList = [];
+        let agencyContactMap = {}; // 사업자번호 키 -> { agencyName, taxContact, memo }
         let docDataMap = {};       
         let counselDataMap = {};   
         let custEditLogMap = {};   
@@ -1415,6 +1497,11 @@
                 return s.padStart(8, '0');
             }
             return s;
+        }
+
+        function normalizeBizNo(b) {
+            if (!b) return '';
+            return String(b).trim();
         }
 
         function normalizeYM(val) {
@@ -1480,8 +1567,8 @@
 
         function downloadCustomerTemplate() {
             const templateHeader = [
-                ['회원번호', '회원명', '납부자 휴대전화', '계약상태', '상품금액', '약정일', '청구시작일', '회원구분', '영업수수료', '엑셀명', '대리점명', '납품처명', '사업자번호', '영업대표'],
-                ['6568803322-00', '주식회사 곤트란쉐리에상계본점_AI스캐너', '010-2496-7015', '사용', 165000, '5일', '2026-10-01', 'AI스캐너', 44000, '곤트란쉐리에', '포스뱅크', '메트로넷', '6568803322', '김원식']
+                ['회원번호', '회원명', '납부자 휴대전화', '계약상태', '상품금액', '약정일', '청구시작일', '회원구분', '영업수수료', '엑셀명', '대리점명', '납품처명', '사업자번호', '세금계산서연락처', '영업대표'],
+                ['6568803322-00', '주식회사 곤트란쉐리에상계본점_AI스캐너', '010-2496-7015', '사용', 165000, '5일', '2026-10-01', 'AI스캐너', 44000, '곤트란쉐리에', '포스뱅크', '메트로넷', '6568803322', '010-9999-8888', '김원식']
             ];
             const ws = XLSX.utils.aoa_to_sheet(templateHeader);
             const wb = XLSX.utils.book_new();
@@ -1491,8 +1578,8 @@
 
         function downloadAiCustomerTemplate() {
             const templateHeader = [
-                ['회원번호', '엑셀명', '대리점명', 'Viscovery명', '수량', 'Viscovery수수료', '영업수수료', '비고'],
-                ['6568803322-00', '곤트란쉐리에', '포스뱅크', '곤트란쉐리에상계', 1, 45, 44000, 'CMS 고객관리 회원번호 자동 매칭 연동']
+                ['회원번호', '엑셀명', '대리점명', 'Viscovery명', '수량', 'Viscovery수수료', '영업수수료', '세금계산서연락처', '비고'],
+                ['6568803322-00', '곤트란쉐리에', '포스뱅크', '곤트란쉐리에상계', 1, 45, 44000, 'tax@agency.com', 'CMS 고객관리 회원번호 자동 매칭 연동']
             ];
             const ws = XLSX.utils.aoa_to_sheet(templateHeader);
             const wb = XLSX.utils.book_new();
@@ -1587,6 +1674,7 @@
 
                     saveLocalStorage();
                     syncToFirebase();
+                    updatePaymentMonthSelect();
                     renderPaymentTable();
                     renderDashboardCharts();
 
@@ -1673,6 +1761,7 @@
                     saveLocalStorage();
                     syncToFirebase();
                     updateBillingMonthSelect();
+                    updatePaymentMonthSelect();
                     renderBillingTable();
                     renderPaymentTable();
                     renderDashboardCharts();
@@ -1688,7 +1777,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        /* [수정됨: AI스캐너 엑셀 업로드 시 기존 데이터 유실 방지 및 필터 리셋] */
         function handleAiCustomerExcelUpload(input) {
             let file = input.files[0];
             if (!file) return;
@@ -1722,6 +1810,7 @@
                         let rawVisFee = (row['Viscovery수수료'] !== undefined && row['Viscovery수수료'] !== '') ? parseCleanInt(row['Viscovery수수료'], 0) : 0;
                         let viscoveryFee = rawVisFee > 0 ? rawVisFee : (qty * unitFee);
                         let commission = parseCleanInt(row['영업수수료'], 0);
+                        let taxContact = String(row['세금계산서연락처'] || row['세금계산서담당자'] || row['계산서연락처'] || '').trim();
 
                         let target = customerDataList.find(c => normalizeMemberNo(c.no) === memberNo);
 
@@ -1735,9 +1824,16 @@
                             if (commission > 0 || row['영업수수료'] !== undefined) {
                                 target.commission = commission;
                             }
+                            if (taxContact) {
+                                target.taxContact = taxContact;
+                                syncTaxContactByBizNo(target.bizNo, taxContact, target.agencyName);
+                            }
                             target.type = 'AI스캐너';
                             matchCount++;
                         } else {
+                            let biz = String(row['사업자번호'] || '-').trim();
+                            let existingTax = (biz && agencyContactMap[biz]) ? agencyContactMap[biz].taxContact : (taxContact || '');
+
                             customerDataList.unshift({
                                 idx: customerDataList.length > 0 ? Math.max(...customerDataList.map(c => c.idx || 0)) + 1 : (rIdx + 1),
                                 no: memberNo,
@@ -1756,14 +1852,18 @@
                                 agencyName: agencyName,
                                 agency: agencyName,
                                 supplier: String(row['납품처명'] || '-').trim(),
-                                bizNo: String(row['사업자번호'] || '-').trim(),
+                                bizNo: biz,
+                                taxContact: existingTax,
                                 manager: String(row['영업대표'] || '-').trim()
                             });
+
+                            if (taxContact && biz && biz !== '-') {
+                                syncTaxContactByBizNo(biz, taxContact, agencyName);
+                            }
                             newCount++;
                         }
                     });
 
-                    // 업로드 후 즉시 전체 목록 탭으로 재설정하여 보이지 않는 현상 방지
                     selectedAiCustomerStatusTab = 'ALL';
                     let tabGroup = document.querySelector('#view-aiScannerCustomer .status-tab-group');
                     if (tabGroup) {
@@ -1779,6 +1879,7 @@
                     filterAiScannerCustomerTable();
                     filterCustomerTable();
                     renderPaymentTable();
+                    renderAgencyContactTable();
 
                     alert(`AI스캐너 연동 업로드 완료!\n기존 CMS 고객 매칭 갱신: ${matchCount}건 / 신규 등록: ${newCount}건`);
                 } catch (err) {
@@ -1827,6 +1928,7 @@
 
                         let supplier = String(row['납품처명'] || row['납품처'] || '-').trim();
                         let bizNo = String(row['사업자번호'] || row['사업자 번호'] || row['가맹점'] || '-').trim();
+                        let taxContact = String(row['세금계산서연락처'] || row['세금계산서담당자'] || row['계산서연락처'] || '').trim();
                         let manager = String(row['영업대표'] || row['담당자'] || '-').trim();
 
                         if (!memberNo && !memberName) return;
@@ -1847,8 +1949,15 @@
                             customerDataList[existingIndex].supplier = supplier;
                             customerDataList[existingIndex].bizNo = bizNo;
                             customerDataList[existingIndex].manager = manager;
+                            if (taxContact) {
+                                customerDataList[existingIndex].taxContact = taxContact;
+                                syncTaxContactByBizNo(bizNo, taxContact, agencyName || supplier);
+                            } else if (bizNo && agencyContactMap[bizNo]) {
+                                customerDataList[existingIndex].taxContact = agencyContactMap[bizNo].taxContact || '';
+                            }
                             updateCount++;
                         } else {
+                            let existingTax = (bizNo && agencyContactMap[bizNo]) ? agencyContactMap[bizNo].taxContact : (taxContact || '');
                             customerDataList.unshift({
                                 idx: customerDataList.length > 0 ? Math.max(...customerDataList.map(c => c.idx || 0)) + 1 : (rIdx + 1),
                                 no: memberNo,
@@ -1864,8 +1973,12 @@
                                 agencyName: agencyName,
                                 supplier: supplier,
                                 bizNo: bizNo,
+                                taxContact: existingTax,
                                 manager: manager
                             });
+                            if (taxContact && bizNo && bizNo !== '-') {
+                                syncTaxContactByBizNo(bizNo, taxContact, agencyName || supplier);
+                            }
                             addCount++;
                         }
                     });
@@ -1877,6 +1990,7 @@
                     filterCustomerTable();
                     filterAiScannerCustomerTable();
                     renderPaymentTable();
+                    renderAgencyContactTable();
 
                     alert(`고객 대량업로드 완료!\n총 ${addCount + updateCount}건 반영 (신규: ${addCount}건 / 갱신: ${updateCount}건)`);
                 } catch (err) {
@@ -1887,6 +2001,80 @@
                 }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        // [핵심] 사업자번호 기준 세금계산서 담당자 연락처 전체 동기화 함수
+        function syncTaxContactByBizNo(bizNo, newContact, agencyNameHint = '', memoHint = '') {
+            if (!bizNo || bizNo === '-') return;
+
+            // 1. 대리점 맵에 저장/갱신
+            if (!agencyContactMap[bizNo]) {
+                agencyContactMap[bizNo] = {
+                    agencyName: agencyNameHint || '-',
+                    taxContact: newContact,
+                    memo: memoHint || ''
+                };
+            } else {
+                agencyContactMap[bizNo].taxContact = newContact;
+                if (agencyNameHint && (!agencyContactMap[bizNo].agencyName || agencyContactMap[bizNo].agencyName === '-')) {
+                    agencyContactMap[bizNo].agencyName = agencyNameHint;
+                }
+                if (memoHint) {
+                    agencyContactMap[bizNo].memo = memoHint;
+                }
+            }
+
+            // 2. 동일한 사업자번호를 가진 모든 customerDataList 가맹점에 자동 일괄 반영
+            customerDataList.forEach(c => {
+                if (c.bizNo === bizNo) {
+                    c.taxContact = newContact;
+                }
+            });
+        }
+
+        // 수금관리 조회 연월 드롭다운 동적 구성
+        function updatePaymentMonthSelect() {
+            let selectEl = document.getElementById('paySelectMonth');
+            if (!selectEl) return;
+
+            let currentVal = selectEl.value;
+            let monthSet = new Set();
+
+            billingDataList.forEach(b => {
+                if (b.month) {
+                    let ym = normalizeYM(b.month);
+                    if (ym) monthSet.add(ym);
+                }
+            });
+
+            Object.keys(paymentDataMap).forEach(mNo => {
+                let rec = paymentDataMap[mNo] || {};
+                Object.keys(rec).forEach(k => {
+                    if (k !== 'MEMO' && /^\d{4}-\d{2}$/.test(k)) {
+                        monthSet.add(k);
+                    }
+                });
+            });
+
+            let sortedMonths = Array.from(monthSet).sort().reverse();
+            if (sortedMonths.length === 0) {
+                sortedMonths = ['2026-10', '2026-09', '2026-08'];
+            }
+
+            let html = '';
+            sortedMonths.forEach(m => {
+                let parts = m.split('-');
+                let display = parts.length === 2 ? `${parts[0]}년 ${parts[1]}월` : m;
+                html += `<option value="${m}">${display}</option>`;
+            });
+
+            selectEl.innerHTML = html;
+
+            if (currentVal && sortedMonths.includes(currentVal)) {
+                selectEl.value = currentVal;
+            } else {
+                selectEl.value = sortedMonths[0]; // 최신 연월 자동 선택
+            }
         }
 
         function updateBillingMonthSelect() {
@@ -2026,6 +2214,7 @@
                 let savedCust = localStorage.getItem('cms_cust_list');
                 let savedPay = localStorage.getItem('cms_pay_map');
                 let savedBill = localStorage.getItem('cms_bill_list');
+                let savedAgencyContacts = localStorage.getItem('cms_agency_contacts');
                 let savedUsers = localStorage.getItem('cms_users_list');
                 let savedRates = localStorage.getItem('cms_commission_rates');
                 let savedVisRates = localStorage.getItem('cms_viscovery_rates');
@@ -2037,6 +2226,7 @@
                 if (savedCust) customerDataList = JSON.parse(savedCust);
                 if (savedPay) paymentDataMap = JSON.parse(savedPay);
                 if (savedBill) billingDataList = JSON.parse(savedBill);
+                if (savedAgencyContacts) agencyContactMap = JSON.parse(savedAgencyContacts);
                 if (savedUsers) userAccountsList = JSON.parse(savedUsers);
                 if (savedRates) commissionRateMap = JSON.parse(savedRates);
                 if (savedVisRates) viscoveryRateConfig = JSON.parse(savedVisRates);
@@ -2049,6 +2239,9 @@
                     c.no = normalizeMemberNo(c.no);
                     if (!c.supplier && c.agency) c.supplier = c.agency;
                     if (!c.bizNo && c.store) c.bizNo = c.store;
+                    if (!c.taxContact && c.bizNo && agencyContactMap[c.bizNo]) {
+                        c.taxContact = agencyContactMap[c.bizNo].taxContact || '';
+                    }
                 });
 
                 if (localStorage.getItem('saved_login_checked') === 'true') {
@@ -2074,9 +2267,11 @@
             updateTabBadges();
             filterCustomerTable();
             filterAiScannerCustomerTable();
+            updatePaymentMonthSelect();
             renderPaymentTable();
             updateBillingMonthSelect();
             renderBillingTable();
+            renderAgencyContactTable();
             renderAdminUsersTable();
             renderTrashTable();
             renderDashboardCharts();
@@ -2084,10 +2279,13 @@
             renderViscoveryRateTable();
 
             try {
-                /* [수정됨: Firebase 실시간 동기화 수신 시 AI스캐너 세부 필드 덮어쓰기 유실 방지] */
                 db.ref('cms_erp_data').on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
+                        if (data.agencyContacts) {
+                            agencyContactMap = { ...agencyContactMap, ...data.agencyContacts };
+                        }
+
                         if (data.customers && Array.isArray(data.customers) && data.customers.length > 0) {
                             data.customers.forEach(sc => {
                                 sc.no = normalizeMemberNo(sc.no);
@@ -2104,9 +2302,13 @@
                                         viscoveryName: sc.viscoveryName || customerDataList[locIdx].viscoveryName || '',
                                         qty: sc.qty !== undefined ? sc.qty : (customerDataList[locIdx].qty || 1),
                                         viscoveryFee: sc.viscoveryFee !== undefined ? sc.viscoveryFee : customerDataList[locIdx].viscoveryFee,
-                                        commission: sc.commission !== undefined ? sc.commission : customerDataList[locIdx].commission
+                                        commission: sc.commission !== undefined ? sc.commission : customerDataList[locIdx].commission,
+                                        taxContact: sc.taxContact || customerDataList[locIdx].taxContact || (sc.bizNo && agencyContactMap[sc.bizNo] ? agencyContactMap[sc.bizNo].taxContact : '')
                                     };
                                 } else {
+                                    if (!sc.taxContact && sc.bizNo && agencyContactMap[sc.bizNo]) {
+                                        sc.taxContact = agencyContactMap[sc.bizNo].taxContact || '';
+                                    }
                                     customerDataList.push(sc);
                                 }
                             });
@@ -2153,9 +2355,11 @@
                         updateTabBadges();
                         filterCustomerTable();
                         filterAiScannerCustomerTable();
+                        updatePaymentMonthSelect();
                         renderPaymentTable();
                         updateBillingMonthSelect();
                         renderBillingTable();
+                        renderAgencyContactTable();
                         renderAdminUsersTable();
                         renderTrashTable();
                         renderDashboardCharts();
@@ -2186,6 +2390,7 @@
                     customers: customerDataList,
                     payments: paymentDataMap,
                     billings: billingDataList,
+                    agencyContacts: agencyContactMap,
                     commissionRates: commissionRateMap,
                     viscoveryRates: viscoveryRateConfig,
                     docs: docDataMap,
@@ -2208,6 +2413,7 @@
                 localStorage.setItem('cms_cust_list', JSON.stringify(customerDataList));
                 localStorage.setItem('cms_pay_map', JSON.stringify(paymentDataMap));
                 localStorage.setItem('cms_bill_list', JSON.stringify(billingDataList));
+                localStorage.setItem('cms_agency_contacts', JSON.stringify(agencyContactMap));
                 localStorage.setItem('cms_users_list', JSON.stringify(userAccountsList));
                 localStorage.setItem('cms_commission_rates', JSON.stringify(commissionRateMap));
                 localStorage.setItem('cms_viscovery_rates', JSON.stringify(viscoveryRateConfig));
@@ -2755,10 +2961,16 @@
             if (category === 'dashboard') renderDashboardCharts();
             if (category === 'customer') filterCustomerTable();
             if (category === 'aiScannerCustomer') filterAiScannerCustomerTable();
-            if (category === 'payment') renderPaymentTable();
+            if (category === 'payment') {
+                updatePaymentMonthSelect();
+                renderPaymentTable();
+            }
             if (category === 'billing') {
                 updateBillingMonthSelect();
                 renderBillingTable();
+            }
+            if (category === 'agencyContact') {
+                renderAgencyContactTable();
             }
             if (category === 'adminMap') {
                 renderAdminUsersTable();
@@ -2778,6 +2990,7 @@
             filterAiScannerCustomerTable();
             filterPaymentTable();
             renderBillingTable();
+            renderAgencyContactTable();
         }
 
         function sortTable(key, type) {
@@ -2840,6 +3053,7 @@
                                     (item.phone || '').toLowerCase().includes(query) ||
                                     (item.supplier || '').toLowerCase().includes(query) ||
                                     (item.bizNo || '').toLowerCase().includes(query) ||
+                                    (item.taxContact || '').toLowerCase().includes(query) ||
                                     (item.manager || '').toLowerCase().includes(query);
 
                 let matchesStatus = (selectedStatus === 'ALL') || (item.status === selectedStatus);
@@ -2870,6 +3084,7 @@
                                     (item.phone || '').toLowerCase().includes(query) ||
                                     (item.supplier || '').toLowerCase().includes(query) ||
                                     (item.bizNo || '').toLowerCase().includes(query) ||
+                                    (item.taxContact || '').toLowerCase().includes(query) ||
                                     (item.excelName || '').toLowerCase().includes(query) ||
                                     (item.agencyName || '').toLowerCase().includes(query) ||
                                     (item.viscoveryName || '').toLowerCase().includes(query) ||
@@ -2916,6 +3131,7 @@
             filterCustomerTable();
         }
 
+        // [수금관리 필터 및 렌더링: 선택된 조회 연월 paySelectMonth 정확히 연동]
         function filterPaymentTable() {
             let query = document.getElementById('searchInput').value.toLowerCase().trim();
             let selectedStatus = selectedPaymentStatusTab;
@@ -2923,12 +3139,14 @@
             let selectedBizNo = document.getElementById('payFilterBizNoSelect').value;
             let selectedManager = document.getElementById('payFilterManagerSelect').value;
             let selectedUnpaid = document.getElementById('payFilterUnpaidSelect').value;
+            let selectedMonth = document.getElementById('paySelectMonth') ? document.getElementById('paySelectMonth').value : `${currentModalYear}-10`;
 
             let filtered = customerDataList.filter(item => {
                 let matchesSearch = (item.no || '').toLowerCase().includes(query) ||
                                     (item.name || '').toLowerCase().includes(query) ||
                                     (item.supplier || '').toLowerCase().includes(query) ||
                                     (item.bizNo || '').toLowerCase().includes(query) ||
+                                    (item.taxContact || '').toLowerCase().includes(query) ||
                                     (item.manager || '').toLowerCase().includes(query);
 
                 let matchesStatus = (selectedStatus === 'ALL') || (item.status === selectedStatus);
@@ -2936,10 +3154,17 @@
                 let matchesBizNo = (selectedBizNo === 'ALL') || (item.bizNo === selectedBizNo);
                 let matchesManager = (selectedManager === 'ALL') || (item.manager === selectedManager);
 
-                let summary = getYearlySummary(item.no, currentModalYear);
+                // 선택된 월 기준 미납/완납 체크
+                let bInfo = getBillingInfoForMonth(item.no, selectedMonth);
+                let pMap = paymentDataMap[normalizeMemberNo(item.no)] || {};
+                let curPay = pMap[selectedMonth] || {};
+                let curBillAmt = (bInfo.amount !== null) ? bInfo.amount : (curPay.amount || 0);
+                let curPaidAmt = curPay.paid || 0;
+                let curUnpaidAmt = Math.max(0, curBillAmt - curPaidAmt);
+
                 let matchesUnpaid = true;
-                if (selectedUnpaid === 'UNPAID') matchesUnpaid = summary.unpaid > 0;
-                else if (selectedUnpaid === 'PAID') matchesUnpaid = summary.unpaid === 0;
+                if (selectedUnpaid === 'UNPAID') matchesUnpaid = curUnpaidAmt > 0;
+                else if (selectedUnpaid === 'PAID') matchesUnpaid = (curBillAmt > 0 && curUnpaidAmt === 0);
 
                 return matchesSearch && matchesStatus && matchesSupplier && matchesBizNo && matchesManager && matchesUnpaid;
             });
@@ -2955,33 +3180,36 @@
             let tbody = "";
             let sums = { bill: 0, paid: 0, unpaid: 0 };
             let count = dataList.length;
+            let selectedMonth = document.getElementById('paySelectMonth') ? document.getElementById('paySelectMonth').value : `${currentModalYear}-10`;
 
             dataList.forEach(item => {
-                let summary = getYearlySummary(item.no, currentModalYear);
-                let bInfo = getBillingInfoForMonth(item.no, `${currentModalYear}-10`);
-                
-                let billDisplay = '-';
-                if (bInfo.amount !== null && bInfo.amount > 0) {
-                    let datePart = bInfo.payDate || '';
-                    billDisplay = `<span class="date-amt-box"><span class="dt-part">${datePart}</span><span class="amt-part">${bInfo.amount.toLocaleString()}</span></span>`;
-                }
-
-                if (bInfo.amount !== null) sums.bill += bInfo.amount;
-                sums.paid += summary.paid;
-                sums.unpaid += summary.unpaid;
-
+                let bInfo = getBillingInfoForMonth(item.no, selectedMonth);
                 let pMap = paymentDataMap[normalizeMemberNo(item.no)] || {};
-                let curPay = pMap[`${currentModalYear}-10`] || {};
+                let curPay = pMap[selectedMonth] || {};
                 
-                let paidDisplay = '-';
-                if (curPay.paid && curPay.paid > 0) {
-                    let paidDatePart = curPay.paidDate || '';
-                    paidDisplay = `<span class="date-amt-box"><span class="dt-part">${paidDatePart}</span><span class="amt-part">${curPay.paid.toLocaleString()}</span></span>`;
+                let bAmt = (bInfo.amount !== null) ? bInfo.amount : (curPay.amount || 0);
+                let pAmt = curPay.paid || 0;
+                let uAmt = (bAmt > 0) ? Math.max(0, bAmt - pAmt) : 0;
+
+                let billDisplay = '-';
+                if (bAmt > 0) {
+                    let datePart = bInfo.payDate || curPay.billPayDate || '';
+                    billDisplay = `<span class="date-amt-box"><span class="dt-part">${datePart}</span><span class="amt-part">${bAmt.toLocaleString()}</span></span>`;
                 }
 
-                let unpaidDisplay = (summary.unpaid > 0)
-                    ? `<span style="color:#dc2626; font-weight:700; font-size:12px;">${summary.unpaid.toLocaleString()}</span>`
-                    : '-';
+                let paidDisplay = '-';
+                if (pAmt > 0) {
+                    let paidDatePart = curPay.paidDate || '';
+                    paidDisplay = `<span class="date-amt-box"><span class="dt-part">${paidDatePart}</span><span class="amt-part">${pAmt.toLocaleString()}</span></span>`;
+                }
+
+                let unpaidDisplay = (uAmt > 0)
+                    ? `<span style="color:#dc2626; font-weight:700; font-size:12px;">${uAmt.toLocaleString()}</span>`
+                    : (bAmt > 0 ? '<span style="color:#10b981; font-weight:700; font-size:12px;">0</span>' : '-');
+
+                sums.bill += bAmt;
+                sums.paid += pAmt;
+                sums.unpaid += uAmt;
 
                 let statusBadge = item.status === '사용' ? '<span class="badge-status badge-use">사용</span>' : '<span class="badge-status badge-stop">'+item.status+'</span>';
 
@@ -2992,6 +3220,7 @@
                     <td>${statusBadge}</td>
                     <td>${item.supplier || '-'}</td>
                     <td>${item.bizNo || '-'}</td>
+                    <td style="color:#0284c7; font-weight:600;">${item.taxContact || '-'}</td>
                     <td>${item.manager || '-'}</td>
                     <td class="text-right">${billDisplay}</td>
                     <td class="text-right">${paidDisplay}</td>
@@ -3102,6 +3331,7 @@
                     <td>${item.type}</td>
                     <td>${item.supplier || item.agency || '-'}</td>
                     <td>${item.bizNo || item.store || '-'}</td>
+                    <td style="color:#0284c7; font-weight:600;">${item.taxContact || '-'}</td>
                     <td>${item.manager || '-'}</td>
                     <td class="text-center"><button class="btn-action" onclick="openDocModal('${item.no}')">서류등록</button></td>
                     <td class="text-center"><button class="btn-action" onclick="openCounselModal('${item.no}')">상담내역</button></td>
@@ -3147,6 +3377,7 @@
                     <td class="text-right" style="font-weight:600; color:#2563eb;">${commissionDisplay}</td>
                     <td>${item.supplier || '-'}</td>
                     <td>${item.bizNo || '-'}</td>
+                    <td style="color:#0284c7; font-weight:600;">${item.taxContact || '-'}</td>
                     <td>${item.manager || '-'}</td>
                     <td class="text-center"><button class="btn-action" onclick="openDocModal('${item.no}')">서류등록</button></td>
                     <td class="text-center"><button class="btn-action" onclick="openCounselModal('${item.no}')">상담내역</button></td>
@@ -3156,6 +3387,233 @@
             if (el) el.innerHTML = tbody;
             let masterCb = document.getElementById('selectAllAiCustomer');
             if (masterCb) masterCb.checked = false;
+        }
+
+        // [신규] 대리점 연락처 관리 테이블 렌더링
+        function renderAgencyContactTable() {
+            let tbody = '';
+            let query = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').toLowerCase().trim();
+
+            // 1. customerDataList에 있는 모든 고유 사업자번호 추출
+            let bizMap = {};
+            customerDataList.forEach(c => {
+                let b = normalizeBizNo(c.bizNo);
+                if (b && b !== '-') {
+                    if (!bizMap[b]) {
+                        bizMap[b] = {
+                            bizNo: b,
+                            agencyName: c.agencyName || c.agency || c.supplier || '-',
+                            count: 0,
+                            taxContact: c.taxContact || (agencyContactMap[b] ? agencyContactMap[b].taxContact : '') || '',
+                            memo: (agencyContactMap[b] ? agencyContactMap[b].memo : '') || ''
+                        };
+                    }
+                    bizMap[b].count++;
+                    if (c.taxContact && !bizMap[b].taxContact) {
+                        bizMap[b].taxContact = c.taxContact;
+                    }
+                }
+            });
+
+            // 2. agencyContactMap에 별도로 등록된 사업자번호도 병합
+            Object.keys(agencyContactMap).forEach(b => {
+                if (!bizMap[b]) {
+                    bizMap[b] = {
+                        bizNo: b,
+                        agencyName: agencyContactMap[b].agencyName || '-',
+                        count: 0,
+                        taxContact: agencyContactMap[b].taxContact || '',
+                        memo: agencyContactMap[b].memo || ''
+                    };
+                } else {
+                    if (agencyContactMap[b].agencyName && agencyContactMap[b].agencyName !== '-') {
+                        bizMap[b].agencyName = agencyContactMap[b].agencyName;
+                    }
+                    if (agencyContactMap[b].taxContact) {
+                        bizMap[b].taxContact = agencyContactMap[b].taxContact;
+                    }
+                    if (agencyContactMap[b].memo) {
+                        bizMap[b].memo = agencyContactMap[b].memo;
+                    }
+                }
+            });
+
+            let list = Object.values(bizMap);
+
+            if (query) {
+                list = list.filter(item => 
+                    item.bizNo.toLowerCase().includes(query) ||
+                    item.agencyName.toLowerCase().includes(query) ||
+                    item.taxContact.toLowerCase().includes(query) ||
+                    item.memo.toLowerCase().includes(query)
+                );
+            }
+
+            list.forEach((item, idx) => {
+                tbody += `<tr>
+                    <td class="text-center">${idx + 1}</td>
+                    <td style="font-weight:700; color:#1e293b;">${item.bizNo}</td>
+                    <td style="font-weight:600;">${item.agencyName}</td>
+                    <td class="text-center" style="font-weight:700; color:#2563eb;">${item.count}개 매장</td>
+                    <td>
+                        <input type="text" value="${item.taxContact}" 
+                            placeholder="연락처 (휴대전화/이메일)" 
+                            style="width:260px; padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:4px; font-weight:600; color:#0284c7;"
+                            onchange="onInlineTaxContactChange('${item.bizNo}', this.value)" />
+                    </td>
+                    <td>
+                        <input type="text" value="${item.memo}" 
+                            placeholder="메모 입력" 
+                            style="width:200px; padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:4px;"
+                            onchange="onInlineAgencyMemoChange('${item.bizNo}', this.value)" />
+                    </td>
+                    <td class="text-center">
+                        <button class="btn-action" style="color:#2563eb;" onclick="openEditAgencyContactModal('${item.bizNo}')">수정</button>
+                        <button class="btn-action" style="color:#ef4444;" onclick="deleteAgencyContactRecord('${item.bizNo}')">삭제</button>
+                    </td>
+                </tr>`;
+            });
+
+            let el = document.getElementById('agency-contact-tbody');
+            if (el) el.innerHTML = list.length > 0 ? tbody : `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">등록된 대리점 사업자번호 및 연락처가 없습니다.</td></tr>`;
+        }
+
+        function onInlineTaxContactChange(bizNo, val) {
+            let cleanVal = String(val).trim();
+            syncTaxContactByBizNo(bizNo, cleanVal);
+            saveLocalStorage();
+            syncToFirebase();
+            filterCustomerTable();
+            filterAiScannerCustomerTable();
+            renderPaymentTable();
+        }
+
+        function onInlineAgencyMemoChange(bizNo, val) {
+            let cleanVal = String(val).trim();
+            if (!agencyContactMap[bizNo]) {
+                agencyContactMap[bizNo] = { agencyName: '-', taxContact: '', memo: cleanVal };
+            } else {
+                agencyContactMap[bizNo].memo = cleanVal;
+            }
+            saveLocalStorage();
+            syncToFirebase();
+        }
+
+        function openAgencyContactModal() {
+            document.getElementById('agencyContactModalTitle').innerText = '신규 대리점 세금계산서 연락처 등록';
+            document.getElementById('ac_biz_no').value = '';
+            document.getElementById('ac_biz_no').readOnly = false;
+            document.getElementById('ac_agency_name').value = '';
+            document.getElementById('ac_tax_contact').value = '';
+            document.getElementById('ac_memo').value = '';
+            openModal('agencyContactModal');
+        }
+
+        function openEditAgencyContactModal(bizNo) {
+            let target = agencyContactMap[bizNo] || {};
+            let foundName = target.agencyName || '';
+            if (!foundName || foundName === '-') {
+                let match = customerDataList.find(c => c.bizNo === bizNo);
+                if (match) foundName = match.agencyName || match.agency || match.supplier || '';
+            }
+
+            document.getElementById('agencyContactModalTitle').innerText = `대리점 연락처 정보 수정 [${bizNo}]`;
+            document.getElementById('ac_biz_no').value = bizNo;
+            document.getElementById('ac_biz_no').readOnly = true;
+            document.getElementById('ac_agency_name').value = foundName;
+            document.getElementById('ac_tax_contact').value = target.taxContact || '';
+            document.getElementById('ac_memo').value = target.memo || '';
+            openModal('agencyContactModal');
+        }
+
+        function saveAgencyContactRecord() {
+            let bizNo = document.getElementById('ac_biz_no').value.trim();
+            let agencyName = document.getElementById('ac_agency_name').value.trim();
+            let taxContact = document.getElementById('ac_tax_contact').value.trim();
+            let memo = document.getElementById('ac_memo').value.trim();
+
+            if (!bizNo) {
+                alert("사업자번호를 입력해 주세요.");
+                return;
+            }
+
+            syncTaxContactByBizNo(bizNo, taxContact, agencyName, memo);
+
+            saveLocalStorage();
+            syncToFirebase();
+            renderAgencyContactTable();
+            filterCustomerTable();
+            filterAiScannerCustomerTable();
+            renderPaymentTable();
+            closeModal('agencyContactModal');
+            alert(`[${bizNo}] 대리점의 세금계산서 연락처가 성공적으로 저장되었으며,
+동일한 사업자번호를 가진 모든 가맹점에 자동 일괄 반영되었습니다.`);
+        }
+
+        function deleteAgencyContactRecord(bizNo) {
+            if (!confirm(`[${bizNo}] 대리점의 세금계산서 연락처 정보를 초기화하시겠습니까?`)) return;
+
+            if (agencyContactMap[bizNo]) {
+                delete agencyContactMap[bizNo];
+            }
+            customerDataList.forEach(c => {
+                if (c.bizNo === bizNo) {
+                    c.taxContact = '';
+                }
+            });
+
+            saveLocalStorage();
+            syncToFirebase();
+            renderAgencyContactTable();
+            filterCustomerTable();
+            filterAiScannerCustomerTable();
+            renderPaymentTable();
+            alert("연락처 정보가 초기화되었습니다.");
+        }
+
+        function downloadAgencyContactExcel() {
+            let rows = [];
+            let bizMap = {};
+            customerDataList.forEach(c => {
+                let b = normalizeBizNo(c.bizNo);
+                if (b && b !== '-') {
+                    if (!bizMap[b]) {
+                        bizMap[b] = {
+                            bizNo: b,
+                            agencyName: c.agencyName || c.agency || c.supplier || '-',
+                            count: 0,
+                            taxContact: c.taxContact || (agencyContactMap[b] ? agencyContactMap[b].taxContact : '') || '',
+                            memo: (agencyContactMap[b] ? agencyContactMap[b].memo : '') || ''
+                        };
+                    }
+                    bizMap[b].count++;
+                }
+            });
+            Object.keys(agencyContactMap).forEach(b => {
+                if (!bizMap[b]) {
+                    bizMap[b] = {
+                        bizNo: b,
+                        agencyName: agencyContactMap[b].agencyName || '-',
+                        count: 0,
+                        taxContact: agencyContactMap[b].taxContact || '',
+                        memo: agencyContactMap[b].memo || ''
+                    };
+                }
+            });
+
+            rows = Object.values(bizMap).map((item, idx) => ({
+                'NO.': idx + 1,
+                '사업자번호': item.bizNo,
+                '대리점명/상호명': item.agencyName,
+                '연결가맹점수': item.count,
+                '세금계산서담당자연락처': item.taxContact,
+                '비고': item.memo
+            }));
+
+            let ws = XLSX.utils.json_to_sheet(rows);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "대리점연락처목록");
+            XLSX.writeFile(wb, "대리점_세금계산서_담당자연락처_목록.xlsx");
         }
 
         function deleteSelectedAiCustomers() {
@@ -3186,6 +3644,7 @@
             renderPaymentTable();
             updateTabBadges();
             updateSelectOptions();
+            renderAgencyContactTable();
             alert("선택한 AI스캐너 고객이 삭제되었습니다 (휴지통 보관).");
         }
 
@@ -3213,6 +3672,7 @@
             
             document.getElementById('edit_supplier').value = item.supplier || '';
             document.getElementById('edit_biz_no').value = item.bizNo || item.store || '';
+            document.getElementById('edit_tax_contact').value = item.taxContact || (item.bizNo && agencyContactMap[item.bizNo] ? agencyContactMap[item.bizNo].taxContact : '') || '';
             document.getElementById('edit_manager').value = item.manager || '';
 
             renderCustEditLog(normalizeMemberNo(item.no));
@@ -3241,6 +3701,7 @@
             renderPaymentTable();
             updateTabBadges();
             updateSelectOptions();
+            renderAgencyContactTable();
             alert("고객 정보가 삭제되었습니다 (휴지통 보관).");
         }
 
@@ -3272,6 +3733,7 @@
             renderPaymentTable();
             updateTabBadges();
             updateSelectOptions();
+            renderAgencyContactTable();
             alert("선택한 고객이 삭제되었습니다.");
         }
 
@@ -3361,6 +3823,7 @@
             saveLocalStorage();
             syncToFirebase();
             updateBillingMonthSelect();
+            updatePaymentMonthSelect();
             renderBillingTable();
             renderPaymentTable();
             renderDashboardCharts();
@@ -3392,6 +3855,7 @@
             saveLocalStorage();
             syncToFirebase();
             updateBillingMonthSelect();
+            updatePaymentMonthSelect();
             renderBillingTable();
             renderPaymentTable();
             renderDashboardCharts();
@@ -3526,6 +3990,7 @@
             renderPaymentTable();
             updateTabBadges();
             updateSelectOptions();
+            renderAgencyContactTable();
             alert(`[${item.name}] 고객 정보가 복구되었습니다.`);
         }
 
@@ -3735,8 +4200,16 @@
             item.viscoveryFee = parseCleanInt(document.getElementById('edit_viscovery_fee').value, item.qty * unitFee);
             
             item.supplier = document.getElementById('edit_supplier').value.trim();
-            item.bizNo = document.getElementById('edit_biz_no').value.trim();
+            let newBizNo = document.getElementById('edit_biz_no').value.trim();
+            item.bizNo = newBizNo;
+            let newTaxContact = document.getElementById('edit_tax_contact').value.trim();
+            item.taxContact = newTaxContact;
             item.manager = document.getElementById('edit_manager').value.trim();
+
+            // 사업자번호가 동일한 모든 가맹점 및 대리점 연락처에 자동 일괄 반영
+            if (newBizNo && newBizNo !== '-') {
+                syncTaxContactByBizNo(newBizNo, newTaxContact, item.agencyName || item.supplier);
+            }
 
             let key = normalizeMemberNo(item.no);
 
@@ -3744,7 +4217,7 @@
                 logEditRecord('CUST', key, `상품금액 변경 (${oldAmt.toLocaleString()}원 -> ${newAmt.toLocaleString()}원)`);
             }
 
-            logEditRecord('CUST', key, `고객 세부정보 업데이트 저장`);
+            logEditRecord('CUST', key, `고객 세부정보 업데이트 저장 (세금계산서 연락처: ${newTaxContact || '미지정'})`);
 
             saveLocalStorage();
             syncToFirebase();
@@ -3752,9 +4225,12 @@
             updateTabBadges();
             filterCustomerTable();
             filterAiScannerCustomerTable();
+            renderPaymentTable();
+            renderAgencyContactTable();
             renderDashboardCharts();
             closeModal('detailModal');
-            alert("고객 세부 내역이 수정되었습니다.");
+            alert("고객 세부 내역이 수정되었으며,
+동일한 사업자번호를 가진 모든 가맹점에도 세금계산서 연락처가 자동 반영되었습니다.");
         }
 
         function openPaymentDetailModal(no) {
@@ -3895,6 +4371,7 @@
                     '영업수수료': item.commission || 0,
                     '납품처명': item.supplier || '-',
                     '사업자번호': item.bizNo || '-',
+                    '세금계산서연락처': item.taxContact || '-',
                     '영업대표': item.manager || '-'
                 }));
                 var ws = XLSX.utils.json_to_sheet(excelRows);
@@ -3924,6 +4401,7 @@
                     '회원구분': item.type,
                     '납품처명': item.supplier || item.agency || '-',
                     '사업자번호': item.bizNo || item.store || '-',
+                    '세금계산서연락처': item.taxContact || '-',
                     '영업대표': item.manager || '-'
                 }));
 
@@ -3940,12 +4418,14 @@
                 return;
             }
 
+            let selectedMonth = document.getElementById('paySelectMonth') ? document.getElementById('paySelectMonth').value : `${currentModalYear}-10`;
+
             let excelRows = customerDataList.map(item => {
                 let summary = getYearlySummary(item.no, currentModalYear);
                 let memoInfo = (paymentDataMap[item.no] || {})['MEMO'] || {};
-                let bInfo = getBillingInfoForMonth(item.no, `${currentModalYear}-10`);
+                let bInfo = getBillingInfoForMonth(item.no, selectedMonth);
                 let pMap = paymentDataMap[normalizeMemberNo(item.no)] || {};
-                let curPay = pMap[`${currentModalYear}-10`] || {};
+                let curPay = pMap[selectedMonth] || {};
 
                 return {
                     '회원번호': item.no,
@@ -3953,13 +4433,15 @@
                     '계약상태': item.status,
                     '납품처명': item.supplier || item.agency || '-',
                     '사업자번호': item.bizNo || item.store || '-',
+                    '세금계산서연락처': item.taxContact || '-',
                     '영업대표': item.manager || '-',
-                    '청구금액': bInfo.amount !== null ? bInfo.amount : '-',
-                    '결제일': bInfo.payDate || '-',
-                    '수납금액': curPay.paid || 0,
+                    '선택월': selectedMonth,
+                    '선택월청구금액': bInfo.amount !== null ? bInfo.amount : (curPay.amount || 0),
+                    '결제일': bInfo.payDate || curPay.billPayDate || '-',
+                    '선택월수납금액': curPay.paid || 0,
                     '정산일': curPay.paidDate || '-',
                     '연간총수납금액': summary.paid,
-                    '연간미납금액': summary.unpaid,
+                    '연간총미납금액': summary.unpaid,
                     '비고일자': memoInfo.date || '',
                     '비고내용': memoInfo.text || ''
                 };
@@ -3968,7 +4450,7 @@
             var worksheet = XLSX.utils.json_to_sheet(excelRows);
             var workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "수금관리");
-            XLSX.writeFile(workbook, "수금관리_내역.xlsx");
+            XLSX.writeFile(workbook, `수금관리_내역_${selectedMonth}.xlsx`);
         }
 
         function saveManualCustomer() {
@@ -3982,6 +4464,15 @@
             let qty = parseCleanInt(document.getElementById('m_qty').value, 1);
             let unitFee = (viscoveryRateConfig && viscoveryRateConfig.defaultUnitPrice) ? viscoveryRateConfig.defaultUnitPrice : 45;
             let visFee = parseCleanInt(document.getElementById('m_viscovery_fee').value, qty * unitFee);
+            let bizNo = document.getElementById('m_biz_no').value.trim() || '-';
+            let taxContact = document.getElementById('m_tax_contact').value.trim();
+            let agencyName = document.getElementById('m_agency_name').value.trim() || document.getElementById('m_supplier').value.trim() || '';
+
+            if (taxContact && bizNo && bizNo !== '-') {
+                syncTaxContactByBizNo(bizNo, taxContact, agencyName);
+            } else if (!taxContact && bizNo && agencyContactMap[bizNo]) {
+                taxContact = agencyContactMap[bizNo].taxContact || '';
+            }
 
             customerDataList.unshift({
                 idx: Date.now(),
@@ -4001,7 +4492,8 @@
                 agencyName: document.getElementById('m_agency_name').value.trim() || '',
                 agency: document.getElementById('m_agency_name').value.trim() || '',
                 supplier: document.getElementById('m_supplier').value.trim() || '-',
-                bizNo: document.getElementById('m_biz_no').value.trim() || '-',
+                bizNo: bizNo,
+                taxContact: taxContact,
                 manager: document.getElementById('m_manager').value.trim() || '-'
             });
 
@@ -4013,6 +4505,7 @@
             updateTabBadges();
             filterCustomerTable();
             filterAiScannerCustomerTable();
+            renderAgencyContactTable();
             renderDashboardCharts();
             closeModal('customerModal');
             alert("신규 고객이 등록되었습니다.");
