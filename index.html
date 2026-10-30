@@ -405,7 +405,6 @@
                 <div class="form-group"><label>엑셀명</label><input type="text" id="m_excel_name" placeholder="예: 곤트란쉐리에"></div>
                 <div class="form-group"><label>대리점명</label><input type="text" id="m_agency_name" placeholder="예: 포스뱅크"></div>
             </div>
-            <!-- Viscovery 정보: 통화 단위 USD 및 요율표 연동 자동계산 -->
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
                 <div class="form-group"><label>Viscovery명</label><input type="text" id="m_viscovery_name" placeholder="예: Viscovery본점"></div>
                 <div class="form-group"><label>수량</label><input type="number" id="m_qty" placeholder="1" onchange="calcViscoveryFee('m_qty', 'm_viscovery_fee')"></div>
@@ -465,7 +464,6 @@
                 <div class="form-group"><label>엑셀명</label><input type="text" id="edit_excel_name"></div>
                 <div class="form-group"><label>대리점명</label><input type="text" id="edit_agency_name"></div>
             </div>
-            <!-- Viscovery 정보: 통화 단위 USD 및 요율표 연동 자동계산 -->
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
                 <div class="form-group"><label>Viscovery명</label><input type="text" id="edit_viscovery_name"></div>
                 <div class="form-group"><label>수량</label><input type="number" id="edit_qty" onchange="calcViscoveryFee('edit_qty', 'edit_viscovery_fee')"></div>
@@ -956,13 +954,12 @@
                                     <th class="sortable" onclick="sortTable('viscoveryName', 'aiScannerCustomer')">Viscovery명 <span class="sort-indicator" id="aisort_viscoveryName"></span></th>
                                     <th class="sortable" onclick="sortTable('no', 'aiScannerCustomer')">회원번호 <span class="sort-indicator" id="aisort_no"></span></th>
                                     <th class="sortable" onclick="sortTable('name', 'aiScannerCustomer')">회원명 <span class="sort-indicator" id="aisort_name"></span></th>
-                                    <th class="sortable" onclick="sortTable('phone', 'aiScannerCustomer')">납부자 휴대전화 <span class="sort-indicator" id="csort_phone"></span></th>
+                                    <th class="sortable" onclick="sortTable('phone', 'aiScannerCustomer')">납부자 휴대전화 <span class="sort-indicator" id="aisort_phone"></span></th>
                                     <th class="sortable" onclick="sortTable('status', 'aiScannerCustomer')">계약상태<br><span style="font-size:10px; font-weight:normal; color:#64748b;">(청구시작일)</span> <span class="sort-indicator" id="aisort_status"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('amount', 'aiScannerCustomer')">상품금액 <span class="sort-indicator" id="aisort_amount"></span></th>
                                     <th class="text-center sortable" onclick="sortTable('contractDay', 'aiScannerCustomer')">약정일 <span class="sort-indicator" id="aisort_contractDay"></span></th>
                                     <th class="sortable" onclick="sortTable('type', 'aiScannerCustomer')">회원구분 <span class="sort-indicator" id="aisort_type"></span></th>
                                     <th class="text-center sortable" onclick="sortTable('qty', 'aiScannerCustomer')">수량 <span class="sort-indicator" id="aisort_qty"></span></th>
-                                    <!-- 통화 단위 USD 적용 -->
                                     <th class="text-right sortable" onclick="sortTable('viscoveryFee', 'aiScannerCustomer')">Viscovery수수료 <span class="sort-indicator" id="aisort_viscoveryFee"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('commission', 'aiScannerCustomer')">영업수수료 <span class="sort-indicator" id="aisort_commission"></span></th>
                                     <th class="sortable" onclick="sortTable('supplier', 'aiScannerCustomer')">납품처명 <span class="sort-indicator" id="aisort_supplier"></span></th>
@@ -1261,7 +1258,6 @@
 
             <!-- 10. [관리자맵 > 영업수수료 & Viscovery 요율 설정] 뷰 -->
             <div id="view-commissionRate" class="view-section">
-                <!-- 10-1. 영업수수료 요율표 -->
                 <div class="content-card">
                     <h3>
                         <span>⚙️ AI스캐너 영업수수료 요율표 관리 (관리자 전용)</span>
@@ -1288,7 +1284,6 @@
                     </div>
                 </div>
 
-                <!-- 10-2. Viscovery 수수료 요율표 (새로 추가된 섹션) -->
                 <div class="content-card">
                     <h3>
                         <span>⚙️ Viscovery 수수료 요율 관리 (USD 기준, 관리자 전용)</span>
@@ -1303,14 +1298,12 @@
                         * 고객 세부정보 창에서 [자동계산] 시 이 설정이 최우선 적용됩니다.
                     </div>
 
-                    <!-- 기본 단가 설정 영역 -->
                     <div style="display:flex; align-items:center; gap:12px; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:12px 16px; margin-bottom:14px; width:100%; max-width:800px;">
                         <label style="font-size:13px; font-weight:700; color:#1e293b; white-space:nowrap;">기본 1대당 단가 (USD):</label>
                         <input type="number" id="v_default_unit_fee" value="45" style="width:140px; padding:6px 10px; font-size:13px; font-weight:700; border:1px solid #94a3b8; border-radius:4px; text-align:right;">
                         <span style="font-size:12px; color:#64748b;">(예: 45 입력 시 수량 × 45 USD 자동 산정)</span>
                     </div>
 
-                    <!-- 수량별 특수 요율 테이블 -->
                     <div class="table-container" style="max-height: 380px;">
                         <table style="width:100%; max-width: 800px;">
                             <thead>
@@ -1324,7 +1317,6 @@
                         </table>
                     </div>
                 </div>
-
             </div>
 
         </div>
@@ -1392,7 +1384,6 @@
             286000: 77000
         };
 
-        // [신규] Viscovery 요율 설정 (기본 단가 및 수량별 특수 요율)
         let viscoveryRateConfig = {
             defaultUnitPrice: 45,
             customRates: {
@@ -1451,7 +1442,6 @@
             return Math.round(n);
         }
 
-        /* [요청 반영: Viscovery 수수료 자동 계산 (관리자 설정 요율표 연동)] */
         function calcViscoveryFee(qtyInputId, feeInputId) {
             let qty = parseInt(document.getElementById(qtyInputId).value) || 1;
             let fee = 0;
@@ -1600,7 +1590,7 @@
                     renderPaymentTable();
                     renderDashboardCharts();
 
-                    alert(`[수금 엑셀 업로드 완료]\n총 ${addCount}건의 수납금액 및 정산일자가 안전하게 반영되었습니다.`);
+                    alert(`[수금 엑셀 업로드 완료]\n총 ${addCount}건의 수납금액 및 정산일자가 반영되었습니다.`);
                 } catch (err) {
                     console.error("수금 엑셀 파싱 에러:", err);
                     alert("수금 엑셀 파싱 오류: " + err.message);
@@ -1698,6 +1688,7 @@
             reader.readAsArrayBuffer(file);
         }
 
+        /* [수정됨: AI스캐너 엑셀 업로드 시 기존 데이터 유실 방지 및 필터 리셋] */
         function handleAiCustomerExcelUpload(input) {
             let file = input.files[0];
             if (!file) return;
@@ -1728,16 +1719,15 @@
                         let qty = parseCleanInt(row['수량'], 1);
                         
                         let unitFee = (viscoveryRateConfig && viscoveryRateConfig.defaultUnitPrice) ? viscoveryRateConfig.defaultUnitPrice : 45;
-                        let rawVisFee = row['Viscovery수수료'] !== undefined && row['Viscovery수수료'] !== '' ? parseCleanInt(row['Viscovery수수료'], 0) : 0;
+                        let rawVisFee = (row['Viscovery수수료'] !== undefined && row['Viscovery수수료'] !== '') ? parseCleanInt(row['Viscovery수수료'], 0) : 0;
                         let viscoveryFee = rawVisFee > 0 ? rawVisFee : (qty * unitFee);
-
                         let commission = parseCleanInt(row['영업수수료'], 0);
 
                         let target = customerDataList.find(c => normalizeMemberNo(c.no) === memberNo);
 
                         if (target) {
-                            target.excelName = excelName || target.excelName;
-                            target.agencyName = agencyName || target.agencyName || target.agency;
+                            target.excelName = excelName || target.excelName || '';
+                            target.agencyName = agencyName || target.agencyName || target.agency || '';
                             target.agency = target.agencyName;
                             target.viscoveryName = viscoveryName || target.viscoveryName || '';
                             target.qty = qty !== undefined ? qty : (target.qty || 1);
@@ -1754,8 +1744,8 @@
                                 name: String(row['회원명'] || excelName || memberNo).trim(),
                                 phone: String(row['납부자 휴대전화'] || row['휴대전화'] || '-').trim(),
                                 status: '사용',
-                                amount: 0,
-                                contractDay: '05',
+                                amount: parseCleanInt(row['상품금액'], 0),
+                                contractDay: String(row['약정일'] || '05일').trim(),
                                 startDate: new Date().toISOString().split('T')[0],
                                 type: 'AI스캐너',
                                 qty: qty,
@@ -1764,20 +1754,30 @@
                                 commission: commission,
                                 excelName: excelName,
                                 agencyName: agencyName,
-                                supplier: '-',
-                                bizNo: '-',
-                                manager: '-'
+                                agency: agencyName,
+                                supplier: String(row['납품처명'] || '-').trim(),
+                                bizNo: String(row['사업자번호'] || '-').trim(),
+                                manager: String(row['영업대표'] || '-').trim()
                             });
                             newCount++;
                         }
                     });
 
+                    // 업로드 후 즉시 전체 목록 탭으로 재설정하여 보이지 않는 현상 방지
+                    selectedAiCustomerStatusTab = 'ALL';
+                    let tabGroup = document.querySelector('#view-aiScannerCustomer .status-tab-group');
+                    if (tabGroup) {
+                        tabGroup.querySelectorAll('.status-tab').forEach(t => t.classList.remove('active'));
+                        let firstTab = tabGroup.querySelector('.status-tab');
+                        if (firstTab) firstTab.classList.add('active');
+                    }
+
                     saveLocalStorage();
                     syncToFirebase();
                     updateSelectOptions();
                     updateTabBadges();
-                    filterCustomerTable();
                     filterAiScannerCustomerTable();
+                    filterCustomerTable();
                     renderPaymentTable();
 
                     alert(`AI스캐너 연동 업로드 완료!\n기존 CMS 고객 매칭 갱신: ${matchCount}건 / 신규 등록: ${newCount}건`);
@@ -2084,6 +2084,7 @@
             renderViscoveryRateTable();
 
             try {
+                /* [수정됨: Firebase 실시간 동기화 수신 시 AI스캐너 세부 필드 덮어쓰기 유실 방지] */
                 db.ref('cms_erp_data').on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
@@ -2094,7 +2095,17 @@
                                 if (!sc.bizNo && sc.store) sc.bizNo = sc.store;
                                 let locIdx = customerDataList.findIndex(lc => normalizeMemberNo(lc.no) === sc.no);
                                 if (locIdx >= 0) {
-                                    customerDataList[locIdx] = { ...customerDataList[locIdx], ...sc };
+                                    customerDataList[locIdx] = { 
+                                        ...customerDataList[locIdx], 
+                                        ...sc,
+                                        type: sc.type || customerDataList[locIdx].type || '미지정',
+                                        excelName: sc.excelName || customerDataList[locIdx].excelName || '',
+                                        agencyName: sc.agencyName || customerDataList[locIdx].agencyName || '',
+                                        viscoveryName: sc.viscoveryName || customerDataList[locIdx].viscoveryName || '',
+                                        qty: sc.qty !== undefined ? sc.qty : (customerDataList[locIdx].qty || 1),
+                                        viscoveryFee: sc.viscoveryFee !== undefined ? sc.viscoveryFee : customerDataList[locIdx].viscoveryFee,
+                                        commission: sc.commission !== undefined ? sc.commission : customerDataList[locIdx].commission
+                                    };
                                 } else {
                                     customerDataList.push(sc);
                                 }
@@ -2374,7 +2385,6 @@
             }
         }
 
-        // --- 영업수수료 요율표 관리 ---
         function renderCommissionRateTable() {
             let tbody = '';
             let sortedAmounts = Object.keys(commissionRateMap).map(Number).sort((a,b) => a - b);
@@ -2439,7 +2449,6 @@
             }
         }
 
-        // --- [신규 추가] Viscovery 수수료 요율표 관리 ---
         function renderViscoveryRateTable() {
             if (!viscoveryRateConfig) {
                 viscoveryRateConfig = { defaultUnitPrice: 45, customRates: { 1: 45, 2: 90, 3: 135 } };
@@ -3386,7 +3395,7 @@
             renderBillingTable();
             renderPaymentTable();
             renderDashboardCharts();
-            alert("선택한 청구 내역 및 수금 데이터가 안전하게 삭제되었습니다.");
+            alert("선택한 청구 내역 및 수금 데이터가 삭제되었습니다.");
         }
 
         function downloadBillingExcel() {
