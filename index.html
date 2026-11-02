@@ -943,6 +943,9 @@
                 <div class="sub-item" onclick="switchCategory('commissionRate', this, '관리자맵 > 수수료 요율 설정')">
                     수수료 요율 설정
                 </div>
+                <div class="sub-item" onclick="switchCategory('settleAdmin', this, '관리자맵 > 정산 월 관리')">
+                    정산 월 관리
+                </div>
             </div>
         </div>
     </div>
@@ -1634,6 +1637,26 @@
             </div>
 
             <!-- 9. [관리자맵 > 계정 및 권한 관리 / 휴지통 복구] 뷰 -->
+            <div id="view-settleAdmin" class="view-section">
+                <div class="content-card">
+                    <h3><span>정산 월 관리 (당월 데이터 생성)</span></h3>
+                    <div style="font-size:12px; color:#475569; line-height:1.7; margin-bottom:12px;">
+                        · 매월 첫 접속 시 당월 정산이 <strong>자동 생성</strong>됩니다. (서버가 없어 매월 1일 0시가 아니라, 그 달에 누가 처음 접속하는 시점에 생성됩니다)<br>
+                        · 자동 생성이 안 됐거나 다른 달이 필요하면 아래에서 <strong>버튼으로 생성</strong>할 수 있습니다. 생성된 월만 Viscovery 정산의 '조회 연월'에 나타납니다.<br>
+                        · 정산 금액은 고객관리·수금관리 데이터로 계산되며, 확정 전까지는 데이터가 바뀌면 함께 바뀝니다. (영업수수료·페이백 화면은 준비 중이라 월 등록만 됩니다)
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px;">
+                        <label style="font-size:12px; font-weight:700; color:#475569;">정산 연월</label>
+                        <input type="month" id="saMonth" style="padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                        <button class="btn btn-primary" style="font-size:12px; padding:6px 14px;" onclick="vsGenerateFromPicker()">선택한 월 데이터 생성 (Viscovery · 영업수수료 · 페이백)</button>
+                    </div>
+                    <div class="table-container"><table>
+                        <thead><tr><th>정산 월</th><th>Viscovery</th><th>영업수수료</th><th>페이백</th><th>Viscovery 확정</th></tr></thead>
+                        <tbody id="saBody"></tbody>
+                    </table></div>
+                </div>
+            </div>
+
             <div id="view-adminMap" class="view-section">
                 <div class="content-card">
                     <h3>
@@ -1806,7 +1829,7 @@
         // 형태: { "사업자번호": { bizNo, agencyName, taxName, taxPhone, taxEmail, memo } }
         let taxContactMap = {};
         let bulkUploadHistory = [];   // [추가] 대량등록 회차 이력
-        let vsSettle = { snapshots: {}, overrides: {}, fx: {}, confirmed: {}, confirmLog: [] };   // [추가] Viscovery 정산 (월별 업로드본 / 수정값 / 환율)
+        let vsSettle = { snapshots: {}, overrides: {}, fx: {}, confirmed: {}, confirmLog: [], generated: {} };   // [추가] Viscovery 정산 (월별 업로드본 / 수정값 / 환율)
         let agencyDeletedKeys = {};   // [추가] 삭제한 대리점 사업자번호 키 (고객 데이터로부터 자동 재생성 방지)
 
         let commissionRateMap = {
@@ -2918,6 +2941,7 @@
                         bulkUploadHistory = data.bulkHistory ? toArr(data.bulkHistory) : bulkUploadHistory;
                         agencyDeletedKeys = data.agencyDeleted || agencyDeletedKeys;
                         if (data.vsSettle) { vsSettle = data.vsSettle; vsNormalize(); }
+                        vsFbReady = true;
 
                         saveLocalStorage();
                         updateAuthUI();
@@ -2935,7 +2959,9 @@
                         renderDashboardCharts();
                         renderCommissionRateTable();
                         renderViscoveryRateTable();
+                        try { vsAutoGenerate(); } catch (e) { console.warn('정산 월 자동 생성 실패:', e); }
                     } else if (customerDataList.length > 0 || billingDataList.length > 0) {
+                        vsFbReady = true;
                         syncToFirebase();
                     }
                 });
@@ -3018,6 +3044,7 @@
         }
 
         function updateAuthUI() {
+            try { vsAutoGenerate(); } catch (e) { console.warn('정산 월 자동 생성 실패:', e); }
             let badge = document.getElementById('userStatusBadge');
             let btn = document.getElementById('loginLogoutBtn');
             let adminBlock = document.getElementById('adminMenuBlock');
@@ -3542,11 +3569,93 @@
 
         function vsNormalize() {
             if (!vsSettle || typeof vsSettle !== 'object') vsSettle = {};
-            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed'].forEach(k => {
+            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated'].forEach(k => {
                 if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
             });
             if (!Array.isArray(vsSettle.confirmLog)) vsSettle.confirmLog = [];
         }
+        /* ===== 월별 정산 데이터 생성 ================================================
+           vsSettle.generated[연월] = { viscovery:{at,by,auto}, commission:{...}, payback:{...} }
+           - 생성된 월만 Viscovery 정산의 '조회 연월'에 나타납니다.
+           - 매월 첫 접속 시 당월이 자동 생성되고(서버가 없어 접속 시점에 실행),
+             관리자맵 > 정산 월 관리 에서 버튼으로 수동 생성/취소할 수 있습니다. */
+        const VS_GEN_TYPES = [{ k: 'viscovery', n: 'Viscovery' }, { k: 'commission', n: '영업수수료' }, { k: 'payback', n: '페이백' }];
+        let vsFbReady = false;
+        function vsTodayYm() { let d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+        function vsGenerate(ym, types, auto) {
+            vsNormalize();
+            let n = 0;
+            if (!/^\d{4}-\d{2}$/.test(ym)) return 0;
+            let by = auto ? '자동(접속 시)' : ((currentUser && (currentUser.name || currentUser.id)) || '관리자');
+            if (!vsSettle.generated[ym]) vsSettle.generated[ym] = {};
+            types.forEach(t => {
+                if (!vsSettle.generated[ym][t]) { vsSettle.generated[ym][t] = { at: vsNowStr(), by: by, auto: !!auto }; n++; }
+            });
+            if (n && types.indexOf('viscovery') >= 0 && !vsSettle.fx[ym] && vsLiveFx) vsSettle.fx[ym] = vsLiveFx;
+            return n;
+        }
+        function vsAutoGenerate() {
+            if (!vsFbReady || !currentUser || currentUser.role === '보기전용') return;
+            vsNormalize();
+            let ym = vsTodayYm(), g = vsSettle.generated[ym] || {};
+            let missing = VS_GEN_TYPES.map(t => t.k).filter(k => !g[k]);
+            if (missing.length === VS_GEN_TYPES.length) {          // 이번 달이 아직 한 번도 생성되지 않았을 때만 (수동 취소한 항목은 되살리지 않음)
+                vsGenerate(ym, missing, true);
+                vsSave();
+            }
+        }
+        function vsGenerateManual(ym, type) {
+            if (!vsIsAdmin()) { alert('관리자만 생성할 수 있습니다.'); return; }
+            let types = type === 'all' ? VS_GEN_TYPES.map(t => t.k) : [type];
+            if (vsGenerate(ym, types, false)) { vsSave(); }
+            renderSettleAdmin();
+            if (document.getElementById('vsMonthSelect')) renderViscoveryDashboard();
+        }
+        function vsGenerateCancel(ym, type) {
+            if (!vsIsAdmin()) { alert('관리자만 취소할 수 있습니다.'); return; }
+            if (type === 'viscovery' && vsIsConfirmed(ym)) { alert('확정된 정산은 생성 취소할 수 없습니다. 먼저 확정을 해제해 주세요.'); return; }
+            let nm = (VS_GEN_TYPES.find(t => t.k === type) || {}).n;
+            if (!confirm(`${vsMonthLabel(ym)} ${nm} 정산 월 생성을 취소할까요?\n(고객·수금 데이터는 바뀌지 않으며, 다시 생성할 수 있습니다)`)) return;
+            if (vsSettle.generated[ym]) {
+                delete vsSettle.generated[ym][type];
+                if (Object.keys(vsSettle.generated[ym]).length === 0) delete vsSettle.generated[ym];
+            }
+            if (type === 'viscovery' && vsCurrentMonth === ym) { vsCurrentMonth = ''; }
+            vsSave();
+            renderSettleAdmin();
+            renderViscoveryDashboard();
+        }
+        function vsSettleAdminMonths() {
+            let set = new Set(Object.keys(vsSettle.generated || {}));
+            Object.keys(vsSettle.confirmed || {}).forEach(k => set.add(k));
+            let d = new Date();
+            for (let i = 0; i < 6; i++) { set.add(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); d.setMonth(d.getMonth() - 1, 1); }
+            return Array.from(set).sort().reverse();
+        }
+        function renderSettleAdmin() {
+            vsNormalize();
+            let admin = vsIsAdmin(), now = vsTodayYm();
+            let pick = document.getElementById('saMonth');
+            if (pick && !pick.value) pick.value = now;
+            let rows = vsSettleAdminMonths().map(ym => {
+                let g = vsSettle.generated[ym] || {};
+                let cells = VS_GEN_TYPES.map(t => {
+                    let x = g[t.k];
+                    if (x) return `<td class="text-center"><span style="font-size:11px; font-weight:700; color:#047857; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:4px; padding:1px 7px;">생성됨</span><div style="font-size:10.5px; color:#64748b; margin-top:2px;">${escHtml(x.at)} · ${escHtml(x.by)}</div>${admin ? `<button class="btn-action" style="color:#dc2626; margin-top:2px;" onclick="vsGenerateCancel('${ym}','${t.k}')">생성 취소</button>` : ''}</td>`;
+                    return `<td class="text-center"><span style="font-size:11px; color:#94a3b8;">미생성</span><div>${admin ? `<button class="btn btn-primary" style="font-size:11px; padding:3px 10px; margin-top:3px;" onclick="vsGenerateManual('${ym}','${t.k}')">생성</button>` : ''}</div></td>`;
+                }).join('');
+                let st = vsIsConfirmed(ym) ? `<span style="font-size:11px; font-weight:700; color:#047857;">🔒 확정 (${escHtml(vsSettle.confirmed[ym].at)})</span>` : '<span style="font-size:11px; color:#94a3b8;">미확정</span>';
+                return `<tr><td class="text-center" style="font-weight:800;">${vsMonthLabel(ym)}${ym === now ? ' <span style="font-size:10px; background:#eff6ff; color:#1d4ed8; border-radius:4px; padding:0 5px;">당월</span>' : ''}</td>${cells}<td class="text-center">${st}</td></tr>`;
+            }).join('');
+            let body = document.getElementById('saBody');
+            if (body) body.innerHTML = rows;
+        }
+        function vsGenerateFromPicker() {
+            let ym = (document.getElementById('saMonth') || {}).value;
+            if (!ym) { alert('생성할 연월을 선택해 주세요.'); return; }
+            vsGenerateManual(ym, 'all');
+        }
+
         /* ===== 정산 확정 ==========================================================
            vsSettle.confirmed[연월] = { at, by, fx, vatExcl, rows:[확정 시점 정산 행 스냅샷] }
            확정된 월은 시스템 데이터가 바뀌어도 스냅샷 값 그대로 표시/출력되며 수정할 수 없습니다.
@@ -3582,7 +3691,8 @@
             let set = new Set(Object.keys(vsSettle.snapshots || {}));
             Object.values(paymentDataMap || {}).forEach(m => Object.keys(m || {}).forEach(k => { if (/^\d{4}-\d{2}$/.test(k)) set.add(k); }));
             (billingDataList || []).forEach(b => { let m = normalizeYM(b.month); if (/^\d{4}-\d{2}$/.test(m)) set.add(m); });
-            set.add('2026-10');
+            Object.keys(vsSettle.generated || {}).forEach(k => { if (/^\d{4}-\d{2}$/.test(k) && (vsSettle.generated[k] || {}).viscovery) set.add(k); });
+            Object.keys(vsSettle.confirmed || {}).forEach(k => set.add(k));
             if (vsCurrentMonth) set.add(vsCurrentMonth);
             return Array.from(set).sort().reverse();
         }
@@ -3944,7 +4054,8 @@
             vsNormalize();
             let months = vsAllMonths();
             if (!vsCurrentMonth) {
-                vsCurrentMonth = months.includes('2026-10') ? '2026-10' : months[0];
+                let nowYm = vsTodayYm();
+                vsCurrentMonth = months.includes(nowYm) ? nowYm : (months[0] || nowYm);
                 months = vsAllMonths();
             }
             let monthSel = document.getElementById('vsMonthSelect');
@@ -4487,14 +4598,14 @@
                     <tr><td style="${th}">적용 환율</td><td style="${td}" ${vsIsConfirmed(D.ym) ? '' : 'colspan="3"'}>${D.fx.toLocaleString('ko-KR')}원 / USD</td>${vsIsConfirmed(D.ym) ? `<td style="${th}">정산 확정</td><td style="${td}">${escHtml(vsSettle.confirmed[D.ym].at)} (${escHtml(vsSettle.confirmed[D.ym].by)})</td>` : ''}</tr>
                 </table>
                 <table style="border-collapse:collapse; width:100%; margin-top:14px;">
-                    <tr>${box('정산 매장수', vsNum(D.rows.length))}${box('총 수량', vsNum(D.qty))}${box('합계 (USD)', '$' + vsNum(D.usd))}${box('원화 환산액', vsNum(D.krw) + '원', '환율 ' + D.fx.toLocaleString('ko-KR') + '원 적용')}</tr>
+                    <tr>${box('정산 매장수', vsNum(D.rows.length))}${box('총 수량', vsNum(D.qty))}${box('합계 (USD)', vsNum(D.usd))}${box('원화 환산액 (원)', vsNum(D.krw), '환율 ' + D.fx.toLocaleString('ko-KR') + '원 적용')}</tr>
                 </table>
                 <div style="margin-top:20px; font-size:13px; font-weight:800;">정산 내역</div>
                 <table style="border-collapse:collapse; width:100%; margin-top:6px;">
                     <thead><tr><th style="${th} width:32px;">NO</th><th style="${th}">엑셀명</th><th style="${th}">Viscovery명</th><th style="${th} width:62px; white-space:nowrap;">계약상태</th><th style="${th} width:42px; white-space:nowrap;">수량</th><th style="${th} width:104px;">Viscovery 수수료(USD)</th><th style="${th} width:66px; white-space:nowrap;">영업대표</th></tr></thead>
                     <tbody>
-                    ${D.rows.map((r, i) => `<tr style="page-break-inside:avoid;"><td style="${td} text-align:center;">${i + 1}</td><td style="${td}">${escHtml(r.excelName)}</td><td style="${td}">${escHtml(r.viscoveryName)}</td><td style="${td} text-align:center; white-space:nowrap;">${escHtml(r.contractStatus)}</td><td style="${td} text-align:center;">${r.qty}</td><td style="${td} ${tr}">$${vsNum(r.usd)}</td><td style="${td} text-align:center; white-space:nowrap;">${escHtml(r.rep)}</td></tr>`).join('')}
-                    <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="4">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td} ${tr}">$${vsNum(D.usd)}</td><td style="${td}"></td></tr>
+                    ${D.rows.map((r, i) => `<tr style="page-break-inside:avoid;"><td style="${td} text-align:center;">${i + 1}</td><td style="${td}">${escHtml(r.excelName)}</td><td style="${td}">${escHtml(r.viscoveryName)}</td><td style="${td} text-align:center; white-space:nowrap;">${escHtml(r.contractStatus)}</td><td style="${td} text-align:center;">${r.qty}</td><td style="${td} ${tr}">${vsNum(r.usd)}</td><td style="${td} text-align:center; white-space:nowrap;">${escHtml(r.rep)}</td></tr>`).join('')}
+                    <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="4">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td} ${tr}">${vsNum(D.usd)}</td><td style="${td}"></td></tr>
                     </tbody>
                 </table>
                 <div style="margin-top:14px; font-size:11px; color:#475569; line-height:1.7; page-break-inside:avoid;">
@@ -4567,45 +4678,60 @@
             let old = btn.innerText; btn.disabled = true; btn.innerText = 'PDF 생성 중...';
             let wrap = null;
             try {
-                const W = 718;                                   // 190mm @96dpi
-                wrap = document.createElement('div');
-                wrap.style.cssText = `position:fixed; left:0; top:0; width:${W}px; background:#fff; z-index:-1; pointer-events:none;`;
-                wrap.innerHTML = vsBuildExpenseHtml(true);
+                const W = 718, PHpx = Math.floor(273 / 190 * W), SAFE = 20, SC = 3;   // 190mm x 273mm @96dpi
+                let html = vsBuildExpenseHtml(true);
+                // 1) 화면에 한 번 배치해서 각 행의 높이만 측정
+                // 앱 전체 CSS(th/td nowrap·padding 등)가 섞이지 않도록, 실제 그릴 때와 같은 조건(빈 문서)의 숨김 프레임에서 측정
+                wrap = document.createElement('iframe');
+                wrap.setAttribute('aria-hidden', 'true');
+                wrap.style.cssText = `position:fixed; left:-10000px; top:0; width:${W}px; height:1200px; border:0;`;
                 document.body.appendChild(wrap);
-                if (document.fonts && document.fonts.ready) await document.fonts.ready;
-                await new Promise(r => setTimeout(r, 100));
-                let base = wrap.getBoundingClientRect();
-                let thead = wrap.querySelector('thead').getBoundingClientRect();
-                let hhTop = thead.top - base.top, hh = thead.height;
-                let ends = Array.from(wrap.querySelectorAll('tbody tr, table + div')).map(e => e.getBoundingClientRect().bottom - base.top);
-                let total = Math.ceil(wrap.scrollHeight);
-                let SC = Math.min(2, 15000 / total);
-                let canvas = await vsHtmlToCanvas(wrap, W, total, SC);
-                const PHpx = Math.floor(273 / 190 * W);          // 한 장의 내용 높이(px)
-                let spans = [], start = 0;
-                while (start < total - 1) {
-                    let repeat = spans.length > 0, avail = PHpx - (repeat ? hh : 0), end;
-                    if (total - start <= avail) end = total;
-                    else {
-                        let cand = ends.filter(e => e > start + 1 && e <= start + avail);
-                        end = cand.length ? Math.max.apply(null, cand) : start + avail;
-                    }
-                    spans.push({ start: start, end: end, repeat: repeat });
-                    start = end;
+                let fd = wrap.contentDocument;
+                fd.open();
+                fd.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0; background:#fff;"><div id="mw" style="width:${W}px;">${html}</div></body></html>`);
+                fd.close();
+                if (fd.fonts && fd.fonts.ready) await fd.fonts.ready;
+                await new Promise(r => setTimeout(r, 150));
+                let mw = fd.getElementById('mw');
+                let base = mw.getBoundingClientRect();
+                let thead = mw.querySelector('thead').getBoundingClientRect();
+                let dataTbl = mw.querySelector('thead').closest('table');   // 정산 내역 표만 (상단 정보표 제외)
+                let trs = Array.from(dataTbl.querySelectorAll('tbody tr'));
+                let hs = trs.map(t => t.getBoundingClientRect().height);
+                let totalH = hs.pop(); trs.pop();                       // 마지막 행 = 합계
+                let allTr = dataTbl.querySelectorAll('tbody tr'), lastBottom = allTr[allTr.length - 1].getBoundingClientRect().bottom;
+                let tailH = (mw.scrollHeight + base.top - lastBottom) + totalH;   // 합계 행 + 하단 안내문
+                wrap.remove(); wrap = null;
+                // 2) 쪽 나누기: 행 높이 기준으로 채우되, 쪽마다 따로 배치(렌더)하므로 행이 잘릴 수 없음
+                let avail = PHpx - SAFE, pages = [], i = 0, n = hs.length;
+                while (i < n || pages.length === 0) {
+                    let first = pages.length === 0;
+                    let used = first ? (thead.bottom - base.top) : (thead.height + 6), a0 = i;
+                    while (i < n && used + hs[i] <= avail) { used += hs[i]; i++; }
+                    if (i >= n && used + tailH > avail && i > a0) { i--; used -= hs[i]; }   // 합계/안내문이 안 들어가면 마지막 행을 다음 쪽으로
+                    if (i === a0 && i < n) i++;                                        // 행 하나가 너무 커도 무한루프 방지
+                    pages.push({ a: a0, b: i, first: first });
                 }
-                let pages = spans.map(pg => {
-                    let bodyH = pg.end - pg.start, extra = pg.repeat ? hh : 0;
-                    let c = document.createElement('canvas');
-                    c.width = canvas.width; c.height = Math.ceil((bodyH + extra) * SC);
-                    let ctx = c.getContext('2d');
-                    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-                    if (pg.repeat) ctx.drawImage(canvas, 0, hhTop * SC, c.width, hh * SC, 0, 0, c.width, hh * SC);
-                    ctx.drawImage(canvas, 0, pg.start * SC, c.width, bodyH * SC, 0, extra * SC, c.width, bodyH * SC);
-                    let b64 = c.toDataURL('image/jpeg', 0.92).split(',')[1], bin = atob(b64), u = new Uint8Array(bin.length);
-                    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-                    return { jpeg: u, wpx: c.width, hpx: c.height, outW: 190, outH: (bodyH + extra) * 190 / W };
-                });
-                let blob = vsBuildPdfFile(pages);
+                pages.forEach((pg, k) => { pg.last = (k === pages.length - 1); });
+                // 3) 쪽마다 따로 그려서 JPEG로 변환
+                let out = [];
+                for (let k = 0; k < pages.length; k++) {
+                    let pg = pages[k];
+                    let el = document.createElement('div');
+                    el.style.cssText = `width:${W}px; height:${PHpx}px; overflow:hidden; background:#fff;`;
+                    el.innerHTML = html;
+                    let root = el.firstElementChild, kids = Array.from(root.children);
+                    if (!pg.first) kids.slice(0, 5).forEach(x => x.remove());      // 제목·정보표·요약·소제목은 첫 장에만
+                    let rows = Array.from(root.querySelector('thead').closest('table').querySelectorAll('tbody tr')), tot = rows.pop();
+                    // 다른 쪽의 행은 지우지 않고 접어서(열 너비 계산에는 포함) 모든 쪽의 열 너비를 동일하게 유지
+                    rows.forEach((r, idx) => { if (idx < pg.a || idx >= pg.b) r.style.visibility = 'collapse'; });
+                    if (!pg.last) { tot.style.visibility = 'collapse'; root.lastElementChild.remove(); }  // 합계·안내문은 마지막 장에만
+                    let c = await vsHtmlToCanvas(el, W, PHpx, SC);
+                    let b64 = c.toDataURL('image/jpeg', 0.95).split(',')[1], bin = atob(b64), u = new Uint8Array(bin.length);
+                    for (let q = 0; q < bin.length; q++) u[q] = bin.charCodeAt(q);
+                    out.push({ jpeg: u, wpx: c.width, hpx: c.height, outW: 190, outH: 273 });
+                }
+                let blob = vsBuildPdfFile(out);
                 let a = document.createElement('a');
                 a.href = URL.createObjectURL(blob); a.download = `Viscovery_statement_${vsCurrentMonth}.pdf`;
                 document.body.appendChild(a); a.click(); a.remove();
@@ -4676,6 +4802,7 @@
                 renderViscoveryDashboard();
                 if (!vsLiveFx) vsFetchLiveFx(false);
             }
+            if (category === 'settleAdmin') renderSettleAdmin();
             if (category === 'adminMap') {
                 renderAdminUsersTable();
                 renderTrashTable();
