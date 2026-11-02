@@ -10,6 +10,7 @@
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <!-- Chart.js (차트 시각화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -296,6 +297,29 @@
         body.readonly-mode .editable-only { display: none !important; }
 
         #customerFileInput, #aiCustomerFileInput, #paymentFileInput, #billingFileInput, #agencyFileInput { display: none; }
+            /* ===== [추가] Viscovery 정산 ===== */
+        .vs-kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-bottom:12px; }
+        .vs-kpi { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; }
+        .vs-kpi.clickable { cursor:pointer; }
+        .vs-kpi.clickable:hover { border-color:#fb7185; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+        .vs-kpi .l { font-size:12px; color:#64748b; font-weight:600; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
+        .vs-kpi .v { font-size:20px; font-weight:800; color:#0f172a; }
+        .vs-kpi .v small { font-size:12px; font-weight:500; color:#64748b; }
+        .vs-kpi .s { font-size:11px; color:#94a3b8; margin-top:3px; }
+        .vs-chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+        @media (max-width: 1100px) { .vs-chart-grid { grid-template-columns:1fr; } }
+        .vs-hint { font-size:11px; font-weight:500; color:#2563eb; background:#eff6ff; padding:2px 8px; border-radius:4px; }
+        .vs-fx-box { display:flex; align-items:center; gap:6px; background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:4px 10px; }
+        .vs-fx-box input { width:80px; border:none; border-bottom:1px solid #cbd5e1; text-align:right; font-weight:700; color:#2563eb; font-size:14px; outline:none; padding:2px 2px; }
+        .vs-live-dot { width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block; }
+        .vs-chip { font-size:12px; padding:4px 12px; border-radius:999px; border:1px solid #e2e8f0; background:#fff; cursor:pointer; font-weight:600; color:#475569; }
+        .vs-chip.active { background:#1e293b; color:#fff; border-color:#1e293b; }
+        .vs-op-select { font-size:11px; font-weight:700; border-radius:999px; border:1px solid #cbd5e1; padding:2px 6px; background:#f1f5f9; }
+        .vs-op-select.op-bill { background:#ecfdf5; color:#047857; border-color:#6ee7b7; }
+        .vs-op-select.op-hold { background:#fff7ed; color:#c2410c; border-color:#fdba74; }
+        .vs-op-select.op-end { background:#fef2f2; color:#b91c1c; border-color:#fca5a5; }
+        .vs-op-select.op-next { background:#eff6ff; color:#1d4ed8; border-color:#93c5fd; }
+        .vs-region-tag { background:#f1f5f9; border-radius:4px; padding:2px 8px; font-size:11px; font-weight:600; color:#475569; cursor:pointer; }
     </style>
 </head>
 <body>
@@ -666,8 +690,8 @@
                 <span style="cursor:pointer;" onclick="closeModal('billingModal')">✕</span>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="form-group"><label>회원번호</label><input type="text" id="b_no" placeholder="예: 2250279546-00"></div>
-                <div class="form-group"><label>회원명</label><input type="text" id="b_name" placeholder="예: 석탄회관_테이블오더"></div>
+                <div class="form-group"><label>회원번호</label><input type="text" id="b_no" placeholder="예: 2250279546-00" oninput="autoFillBillingName()" onchange="autoFillBillingName()"></div>
+                <div class="form-group"><label>회원명</label><input type="text" id="b_name" placeholder="회원번호 입력 시 자동으로 불러옵니다"><div id="b_name_hint" style="font-size:11px; margin-top:3px; min-height:14px;"></div></div>
             </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div class="form-group"><label>청구월</label><input type="text" id="b_month" placeholder="예: 2026-10"></div>
@@ -943,6 +967,8 @@
                 <input type="file" id="paymentFileInput" accept=".xlsx, .xls" onchange="handlePaymentExcelUpload(this)" />
                 <input type="file" id="billingFileInput" accept=".xlsx, .xls" onchange="handleBillingExcelUpload(this)" />
                 <input type="file" id="agencyFileInput" accept=".xlsx, .xls" onchange="handleAgencyExcelUpload(this)" />
+                <input type="file" id="vsExcelInput" accept=".xlsx, .xls" onchange="handleVsExcelUpload(this)" />
+                <input type="file" id="vsInvoiceInput" accept=".pdf,application/pdf" onchange="handleVsInvoiceUpload(this)" />
             </div>
         </header>
 
@@ -1325,6 +1351,7 @@
                         <span>대리점 종합 관리 (사업자번호 / 주소지 / 세금계산서 / 연결매장 관리)</span>
                         <div class="card-actions">
                             <button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openAddAgencyContactModal()">+ 대리점 등록</button>
+                            <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="deleteSelectedAgencies()">삭제</button>
                             <button class="btn btn-template editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="downloadAgencyTemplate()">양식 다운로드</button>
                             <button class="btn btn-excel editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="triggerAgencyUpload()">대량업로드</button>
                             <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openBulkHistoryModal('agency')">대량등록 삭제</button>
@@ -1337,10 +1364,15 @@
                         • <strong>연결 매장 관리:</strong> [연결 매장 수] 배지 또는 [매장관리] 버튼을 클릭하면 해당 대리점에 연결된 매장을 한눈에 확인하고, <strong>수동으로 새 매장을 추가하거나 기존 매장의 연결을 해제(삭제)</strong>할 수 있습니다.<br>
                         • <strong>대량 업로드:</strong> [양식 다운로드] 후 사업자번호, 대리점명, 주소지를 엑셀로 한 번에 대량 업로드할 수 있습니다. (<strong>지역</strong>은 주소지 맨 앞 단어에서 자동 추출됩니다. 예: 인천 이음3로 → 인천)
                     </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;">
+                        <div class="filter-group"><label>연결 매장수:</label><select id="agencyFilterStoreCnt" class="filter-select" onchange="renderAgencyContactTable()"></select></div>
+                        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="document.getElementById('agencyFilterStoreCnt').value='ALL'; renderAgencyContactTable();">필터 초기화</button>
+                    </div>
                     <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
+                                    <th class="text-center" style="width:40px;"><input type="checkbox" id="selectAllAgency" onclick="toggleSelectAllAgency(this)" /></th>
                                     <th class="text-center" style="width:45px;">NO.</th>
                                     <th>사업자번호</th>
                                     <th>대리점명</th>
@@ -1360,17 +1392,154 @@
                 </div>
             </div>
 
-            <!-- 6. [AI스캐너 > Viscovery 정산] 뷰 -->
+            <!-- 6. [AI스캐너 > Viscovery 정산] 뷰 (영업수수료 정산 / 지출결의서) -->
             <div id="view-viscovery" class="view-section">
+                <!-- 상단 컨트롤 -->
+                <div class="content-card" style="margin-bottom:16px; padding:14px 18px;">
+                    <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;">
+                        <div>
+                            <div style="font-size:18px; font-weight:800; color:#0f172a;">Viscovery 정산</div>
+                            <div id="vsStatusText" style="font-size:12px; color:#64748b; margin-top:2px;"></div>
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                            <div class="filter-group"><label>조회 연월:</label><select id="vsMonthSelect" class="filter-select" onchange="vsChangeMonth(this.value)"></select></div>
+                            <div class="vs-fx-box">
+                                <span class="vs-live-dot"></span>
+                                <span style="font-size:12px; font-weight:700; color:#475569;">환율</span>
+                                <input type="number" id="vsFxInput" step="0.1" min="500" max="3000" onchange="vsOnFxChange()">
+                                <span style="font-size:11px; color:#64748b;">원/USD</span>
+                                <button type="button" title="실시간 환율 불러오기" onclick="vsFetchLiveFx(true)" style="border:none; background:none; cursor:pointer; font-size:13px;">🔄</button>
+                            </div>
+                            <label style="font-size:12px; color:#475569; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                                <input type="checkbox" id="vsVatCheck" onchange="vsOnVatChange(this.checked)"> 공급가액(VAT 제외) 기준
+                            </label>
+                        </div>
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
+                        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="vsDownloadExcel(false)">📊 엑셀 다운로드</button>
+                        <button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="vsOpenExpense()">📄 정산내역서 PDF</button>
+                        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="openVsInvoiceModal()">🔍 인보이스 대조</button>
+                    </div>
+                </div>
+
+                <!-- KPI -->
+                <div class="vs-kpi-grid" id="vsKpiGrid"></div>
+
+                <!-- 차트 -->
+                <div class="vs-chart-grid">
+                    <div class="content-card" style="margin-bottom:0;">
+                        <h3><span>지역별 AI 스캐너 도입 현황</span><span class="vs-hint">막대 클릭 시 하단 목록 필터링</span></h3>
+                        <div style="font-size:11px; color:#94a3b8; margin:-6px 0 8px;">* 청구 매장의 지역별 스캐너 대수 (매장 지역 → 없으면 대리점 주소지 지역 기준, 미분류 제외)</div>
+                        <div style="height:260px; position:relative;"><canvas id="vsRegionChart"></canvas></div>
+                    </div>
+                    <div class="content-card" style="margin-bottom:0;">
+                        <h3><span>주요 대리점별 스캐너 운영 대수 (Top 7)</span><span class="vs-hint">막대 클릭 시 대리점 필터링</span></h3>
+                        <div style="font-size:11px; color:#94a3b8; margin:-6px 0 8px;">* 청구 중인 스캐너 보유량 순위 (CJ-Foodville 제외)</div>
+                        <div style="height:260px; position:relative;"><canvas id="vsAgencyChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- 필터 -->
+                <div class="content-card" style="margin:16px 0; padding:12px 16px;">
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;">
+                        <input type="text" id="vsSearch" placeholder="엑셀명, Viscovery명, 영업대표 검색..." oninput="vsOnFilterChange()" style="flex:1; min-width:220px; max-width:320px; padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                            <select id="vsRegionSel" class="filter-select" onchange="vsOnFilterChange()"></select>
+                            <select id="vsAgencySel" class="filter-select" onchange="vsOnFilterChange()"></select>
+                            <select id="vsRepSel" class="filter-select" onchange="vsOnFilterChange()"></select>
+                            <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="vsResetFilter()">초기화</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 정산 목록 -->
                 <div class="content-card">
-                    <h3>Viscovery AI스캐너 정산 현황</h3>
+                    <h3><span id="vsTableTitle">정산 내역</span><span style="font-size:11px; font-weight:400; color:#94a3b8;">해당 월 청구된 AI스캐너 매장만 자동 집계됩니다</span></h3>
                     <div class="table-container">
                         <table>
                             <thead>
-                                <tr><th>가맹점명</th><th>라이선스 수량</th><th>비즈커버리 수수료</th><th>정산 상태</th></tr>
+                                <tr>
+                                    <th>엑셀명</th>
+                                    <th>Viscovery명</th>
+                                    <th class="text-center">계약상태</th>
+                                    <th class="text-center">수량</th>
+                                    <th class="text-right" style="color:#d97706;">Viscovery 수수료(USD)</th>
+                                    <th>영업대표</th>
+                                </tr>
                             </thead>
-                            <tbody id="viscovery-table-body"></tbody>
+                            <tbody id="vsTableBody"></tbody>
+                            <tfoot id="vsTableFoot"></tfoot>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- [Viscovery] 미납 상세 모달 -->
+            <div id="vsUnpaidModal" class="modal-overlay">
+                <div class="modal-card" style="width: 720px;">
+                    <div class="modal-header">
+                        <span>🚨 미납 매장 상세 내역</span>
+                        <span style="cursor:pointer;" onclick="closeModal('vsUnpaidModal')">✕</span>
+                    </div>
+                    <div style="max-height:420px; overflow:auto;">
+                        <table>
+                            <thead><tr><th>지역</th><th>매장명</th><th>대리점</th><th>영업대표</th><th class="text-center">스캐너</th><th class="text-right">청구금액</th><th class="text-right" style="color:#dc2626;">미납금액</th></tr></thead>
+                            <tbody id="vsUnpaidBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="vsUnpaidSummary" style="margin-top:12px; font-size:13px; font-weight:700; color:#dc2626; text-align:right;"></div>
+                    <div style="display:flex; justify-content:flex-end; margin-top:12px;"><button class="btn btn-outline" onclick="closeModal('vsUnpaidModal')">닫기</button></div>
+                </div>
+            </div>
+
+            <!-- [Viscovery] 인보이스 대조 모달 -->
+            <div id="vsInvoiceModal" class="modal-overlay">
+                <div class="modal-card modal-card-large" style="width: 960px; max-height: 92vh; overflow:auto;">
+                    <div class="modal-header">
+                        <span>🔍 Viscovery 인보이스 대조</span>
+                        <span style="cursor:pointer;" onclick="closeModal('vsInvoiceModal')">✕</span>
+                    </div>
+                    <div style="font-size:12px; color:#64748b; margin-bottom:10px; line-height:1.6;">Viscovery에서 받은 인보이스 PDF를 올리면 항목(Viscovery명 기준)을 시스템 정산 내역과 비교해서, 금액이 달라지는 이유를 매장별로 보여줍니다.</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">
+                        <button class="btn btn-primary" onclick="document.getElementById('vsInvoiceInput').click()">인보이스 PDF 업로드</button>
+                        <span id="vsInvStatus" style="font-size:12px; color:#475569;"></span>
+                        <label style="font-size:12px; color:#475569; display:flex; align-items:center; gap:4px; margin-left:auto;"><input type="checkbox" id="vsInvDiffOnly" checked onchange="vsRenderInvoiceResult()"> 차이 항목만 보기</label>
+                    </div>
+                    <div id="vsInvSummary"></div>
+                    <div style="max-height:44vh; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">
+                        <table>
+                            <thead><tr><th>인보이스 항목</th><th>시스템 고객</th><th class="text-center">시스템 집계</th><th class="text-center">결과</th><th>사유</th></tr></thead>
+                            <tbody id="vsInvBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; margin-top:12px;"><button class="btn btn-outline" onclick="closeModal('vsInvoiceModal')">닫기</button></div>
+                </div>
+            </div>
+
+            <!-- [Viscovery] 정산내역서 모달 (지출결의서 증빙용) -->
+            <div id="vsExpenseModal" class="modal-overlay">
+                <div class="modal-card modal-card-large" style="width: 920px; max-height: 92vh; overflow:auto;">
+                    <div class="modal-header">
+                        <span>📄 정산내역서 (지출결의서 증빙용)</span>
+                        <span style="cursor:pointer;" onclick="closeModal('vsExpenseModal')">✕</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+                        <div class="form-group" style="grid-column: span 2;"><label>문서 제목</label><input type="text" id="ex_title" oninput="vsRefreshExpense()"></div>
+                        <div class="form-group"><label>작성일</label><input type="date" id="ex_date" oninput="vsRefreshExpense()"></div>
+                        <div class="form-group"><label>작성자</label><input type="text" id="ex_drafter" oninput="vsRefreshExpense()"></div>
+                        <div class="form-group"><label>공급사</label><input type="text" id="ex_payee" oninput="vsRefreshExpense()"></div>
+                        <div class="form-group"><label>인보이스 번호</label><input type="text" id="ex_invno" placeholder="예: IN2026102201" oninput="vsRefreshExpense()"></div>
+                        <div class="form-group" style="grid-column: span 2;"><label>적용 환율</label><div style="padding-top:8px; font-size:12px; color:#64748b;">정산 화면 상단의 환율 입력값이 적용됩니다.</div></div>
+                    </div>
+                    <div class="form-group"><label>비고</label><input type="text" id="ex_memo" placeholder="추가로 기재할 내용이 있으면 입력해 주세요" oninput="vsRefreshExpense()"></div>
+                    <div style="background:#e2e8f0; padding:12px; border-radius:6px; max-height:46vh; overflow:auto;">
+                        <div id="vsExpensePreview" style="width:794px; margin:0 auto; background:#fff;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+                        <button class="btn btn-outline" onclick="closeModal('vsExpenseModal')">닫기</button>
+                        <button class="btn btn-outline" onclick="vsDownloadExcel(true)">📊 엑셀 다운로드</button>
+                        <button class="btn btn-outline" onclick="vsPrintExpense()">인쇄 / PDF로 저장</button>
+                        <button class="btn btn-primary" onclick="vsDownloadExpensePdf()">PDF 다운로드</button>
                     </div>
                 </div>
             </div>
@@ -1590,6 +1759,8 @@
         // 형태: { "사업자번호": { bizNo, agencyName, taxName, taxPhone, taxEmail, memo } }
         let taxContactMap = {};
         let bulkUploadHistory = [];   // [추가] 대량등록 회차 이력
+        let vsSettle = { snapshots: {}, overrides: {}, fx: {} };   // [추가] Viscovery 정산 (월별 업로드본 / 수정값 / 환율)
+        let agencyDeletedKeys = {};   // [추가] 삭제한 대리점 사업자번호 키 (고객 데이터로부터 자동 재생성 방지)
 
         let commissionRateMap = {
             66000: 0,
@@ -1731,8 +1902,8 @@
             if (!confirm(msg)) return;
 
             if (b.type === 'agency') {
-                added.forEach(k => { delete taxContactMap[k]; });
-                updated.forEach(u => { if (u && u.prev) taxContactMap[u.key] = u.prev; });
+                added.forEach(k => { delete taxContactMap[k]; agencyDeletedKeys[k] = true; });
+                updated.forEach(u => { if (u && u.prev) { taxContactMap[u.key] = u.prev; delete agencyDeletedKeys[u.key]; } });
             } else {
                 let by = currentUser ? (currentUser.name || currentUser.id) : '관리자';
                 added.forEach(cidx => {
@@ -1946,6 +2117,7 @@
         function syncTaxContactByBizNo(bizNo, taxName, taxPhone, taxEmail, agencyName = '', memo = '', address = '') {
             let key = cleanBizNo(bizNo);
             if (!key) return;
+            delete agencyDeletedKeys[key];
 
             let existing = taxContactMap[key] || {};
             taxContactMap[key] = {
@@ -2575,6 +2747,10 @@
                 if (savedTaxContacts) taxContactMap = JSON.parse(savedTaxContacts);
                 let savedBulkHistory = localStorage.getItem('cms_bulk_history');
                 if (savedBulkHistory) bulkUploadHistory = JSON.parse(savedBulkHistory);
+                let savedAgencyDeleted = localStorage.getItem('cms_agency_deleted');
+                if (savedAgencyDeleted) agencyDeletedKeys = JSON.parse(savedAgencyDeleted);
+                let savedVsSettle = localStorage.getItem('cms_vs_settle');
+                if (savedVsSettle) vsSettle = JSON.parse(savedVsSettle);
 
                 customerDataList.forEach(c => {
                     c.no = normalizeMemberNo(c.no);
@@ -2584,7 +2760,7 @@
                     let key = cleanBizNo(c.bizNo);
                     if (key) {
                         if (c.taxName || c.taxPhone || c.taxEmail) {
-                            if (!taxContactMap[key]) {
+                            if (!taxContactMap[key] && !agencyDeletedKeys[key]) {
                                 taxContactMap[key] = {
                                     bizNo: c.bizNo,
                                     cleanKey: key,
@@ -2693,6 +2869,8 @@
                         uploadBatchList = data.batches || uploadBatchList;
                         deletedCustomerTrashList = data.trash || deletedCustomerTrashList;
                         bulkUploadHistory = data.bulkHistory ? toArr(data.bulkHistory) : bulkUploadHistory;
+                        agencyDeletedKeys = data.agencyDeleted || agencyDeletedKeys;
+                        if (data.vsSettle) { vsSettle = data.vsSettle; vsNormalize(); }
 
                         saveLocalStorage();
                         updateAuthUI();
@@ -2745,7 +2923,9 @@
                     payLogs: payEditLogMap,
                     batches: uploadBatchList,
                     trash: deletedCustomerTrashList,
-                    bulkHistory: bulkUploadHistory
+                    bulkHistory: bulkUploadHistory,
+                    agencyDeleted: agencyDeletedKeys,
+                    vsSettle: JSON.parse(JSON.stringify(vsSettle))
                 }).catch(err => {
                     console.warn("Firebase set write error:", err);
                 });
@@ -2768,6 +2948,8 @@
                 localStorage.setItem('cms_upload_batch', JSON.stringify(uploadBatchList));
                 localStorage.setItem('cms_trash_list', JSON.stringify(deletedCustomerTrashList));
                 localStorage.setItem('cms_bulk_history', JSON.stringify(bulkUploadHistory));
+                localStorage.setItem('cms_agency_deleted', JSON.stringify(agencyDeletedKeys));
+                localStorage.setItem('cms_vs_settle', JSON.stringify(vsSettle));
             } catch (e) {
                 console.warn("LocalStorage 저장 예외:", e);
             }
@@ -3296,6 +3478,828 @@
             if (submenu) submenu.classList.toggle('open');
         }
 
+        /* =====================================================================
+           [추가] Viscovery 정산 (년월별 대시보드 / 영업수수료 정산 / 지출결의서 PDF)
+           - 시스템 연동: AI스캐너 고객관리(수량·Viscovery 금액·영업수수료) + 수금관리(입금)
+           - 업로드본   : 정리해 두신 정산 엑셀(AI스캐너_정산_YYMM.xlsx) 그대로 불러와 월별 보관
+           ===================================================================== */
+        const VS_OPS = ['청구', '미청구', '익월청구', '보류', '해지'];
+        let vsCurrentMonth = '';
+        let vsSource = 'auto';          // auto | system | excel
+        let vsVatExcl = false;          // 공급가액(VAT 제외) 기준 (기본: 수금관리와 동일한 VAT 포함 금액)
+        let vsLiveFx = 0;
+        let vsFilter = { q: '', region: 'ALL', agency: 'ALL', rep: 'ALL', op: 'ALL' };
+        let vsRegionChart = null;
+        let vsAgencyChart = null;
+        let vsFxMonthInit = '';
+
+        function vsNormalize() {
+            if (!vsSettle || typeof vsSettle !== 'object') vsSettle = {};
+            ['snapshots', 'overrides', 'fx', 'invoices'].forEach(k => {
+                if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
+            });
+        }
+        function vsSafeKey(k) { return String(k === undefined || k === null ? '' : k).replace(/[.#$\[\]\/]/g, '_'); }
+        function vsNum(n) { return new Intl.NumberFormat('ko-KR').format(Math.round(n || 0)); }
+        function vsSave() { saveLocalStorage(); syncToFirebase(); }
+        function vsCanEdit() { return !(currentUser && currentUser.role === '보기전용'); }
+        function vsFormatBiz(v) {
+            let d = String(v === undefined || v === null ? '' : v).replace(/[^0-9]/g, '');
+            if (!d) return '';
+            if (d.length < 10) d = d.padStart(10, '0');
+            return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : String(v).trim();
+        }
+        function vsCalcViscUsd(qty) {
+            let cfg = viscoveryRateConfig || {};
+            let cr = cfg.customRates || {};
+            if (cr[qty] !== undefined) return cr[qty];
+            return qty * (cfg.defaultUnitPrice || 45);
+        }
+        function vsOpClass(op) {
+            if (op === '청구') return 'op-bill';
+            if (op === '보류' || op === '미청구') return 'op-hold';
+            if (op === '해지') return 'op-end';
+            if (op === '익월청구') return 'op-next';
+            return '';
+        }
+
+        /* ---------- 월 / 환율 ---------- */
+        function vsAllMonths() {
+            let set = new Set(Object.keys(vsSettle.snapshots || {}));
+            Object.values(paymentDataMap || {}).forEach(m => Object.keys(m || {}).forEach(k => { if (/^\d{4}-\d{2}$/.test(k)) set.add(k); }));
+            (billingDataList || []).forEach(b => { let m = normalizeYM(b.month); if (/^\d{4}-\d{2}$/.test(m)) set.add(m); });
+            set.add('2026-10');
+            if (vsCurrentMonth) set.add(vsCurrentMonth);
+            return Array.from(set).sort().reverse();
+        }
+        function vsMonthLabel(ym) { let p = ym.split('-'); return `${p[0]}년 ${parseInt(p[1])}월`; }
+
+        function vsFxValue() {
+            let v = parseFloat((document.getElementById('vsFxInput') || {}).value);
+            return (isNaN(v) || v <= 0) ? 1350 : v;
+        }
+        function vsInitFxForMonth(ym) {
+            let saved = vsSettle.fx[ym];
+            let el = document.getElementById('vsFxInput');
+            if (!el) return;
+            el.value = saved ? saved : (vsLiveFx || 1350);
+            vsFxMonthInit = ym;
+        }
+        async function vsFetchLiveFx(force) {
+            try {
+                let res = await fetch('https://open.er-api.com/v6/latest/USD');
+                if (res.ok) {
+                    let d = await res.json();
+                    if (d && d.rates && d.rates.KRW) {
+                        vsLiveFx = Math.round(d.rates.KRW * 10) / 10;
+                        let el = document.getElementById('vsFxInput');
+                        if (el && (force || !vsSettle.fx[vsCurrentMonth])) {
+                            el.value = vsLiveFx;
+                            if (force) { vsSettle.fx[vsCurrentMonth] = vsLiveFx; vsSave(); }
+                            renderViscoveryDashboard();
+                        }
+                    }
+                }
+            } catch (e) { console.warn('환율 조회 실패(기본값 유지):', e); }
+        }
+        function vsOnFxChange() {
+            vsSettle.fx[vsCurrentMonth] = vsFxValue();
+            vsSave();
+            renderViscoveryDashboard();
+        }
+        function vsOnVatChange(checked) { vsVatExcl = checked; renderViscoveryDashboard(); }
+        function vsChangeMonth(ym) {
+            vsCurrentMonth = ym;
+            vsSource = 'auto';
+            vsFilter = { q: '', region: 'ALL', agency: 'ALL', rep: 'ALL', op: 'ALL' };
+            vsInitFxForMonth(ym);
+            renderViscoveryDashboard();
+        }
+        function vsChangeSource(v) { vsSource = v; renderViscoveryDashboard(); }
+        function vsEffectiveSource(ym) {
+            return 'system';   // 엑셀 업로드 없이 시스템 데이터로 자동 정산
+        }
+
+        /* ---------- 데이터 산출 ---------- */
+        function vsFinalize(rows, fx) {
+            rows.forEach(r => {
+                r.krw = Math.round((r.usd || 0) * fx);
+                r.unpaid = 0;
+                if (r.op === '청구' && r.billAmt > 0 && (r.deposit < r.billAmt - 1 || r.unpaidFlag)) {
+                    r.unpaid = Math.max(0, r.billAmt - r.deposit);
+                    if (r.unpaidFlag && r.deposit === 0) r.unpaid = r.billAmt;
+                }
+            });
+            return rows;
+        }
+
+        /* 대리점 정보 조회 (대리점 사업자번호 우선, 없으면 대리점명이 유일하게 일치하는 대리점) */
+        function vsAgencyLookup(name, bizNo) {
+            let list = Object.values(taxContactMap || {});
+            let bk = cleanBizNo(bizNo);
+            let hit = bk ? list.find(a => cleanBizNo(a.bizNo) === bk) : null;
+            if (!hit && name && name !== '-') {
+                let nm = name.trim().toLowerCase();
+                let m = list.filter(a => (a.agencyName || '').trim().toLowerCase() === nm);
+                if (m.length === 1) hit = m[0];
+            }
+            return hit || null;
+        }
+
+        /* 시스템 데이터 기반 자동 정산 행 생성
+           - 대상: AI스캐너 고객 중 '사용' 상태이면서 해당 월에 수금관리(청구)에 청구금액이 있는 매장만
+           - 청구금액 / 입금금액: 수금관리(청구관리) 데이터
+           - 익월 사용 등 해당 월에 청구되지 않은 매장은 목록 및 Viscovery 비용에서 자동 제외 */
+        function vsBuildRows(ym) {
+            let fx = vsFxValue();
+            let f = vsVatExcl ? 1.1 : 1;
+            let rows = [];
+            customerDataList.filter(c => c.type === 'AI스캐너' && c.status === '사용').forEach(c => {
+                let nkey = normalizeMemberNo(c.no);
+                let pay = (paymentDataMap[nkey] || {})[ym] || {};
+                let bill = getBillingInfoForMonth(nkey, ym);
+                let billIncl = bill.amount !== null ? bill.amount : (pay.amount || 0);
+                if (!(billIncl > 0)) return;
+                let depIncl = pay.paid || 0;
+                let qty = (c.qty !== undefined && c.qty !== null) ? c.qty : 1;
+                let usd = c.viscoveryFee > 0 ? c.viscoveryFee : vsCalcViscUsd(qty);
+                let agencyName = c.agencyName || c.agency || c.supplier || '-';
+                let ag = vsAgencyLookup(agencyName, c.agencyBizNo);
+                let agencyBiz = c.agencyBizNo || (ag ? ag.bizNo : '') || '';
+                let region = c.region || extractRegionFromAddress(c.address || '');
+                if (!region || region === '-') region = ag ? extractRegionFromAddress(ag.address) : '-';
+                let billAmt = Math.round(billIncl / f);
+                let deposit = Math.round(depIncl / f);
+                let paybackBase = Math.round((c.commission || 0) / f);
+                rows.push({
+                    key: vsSafeKey(c.no), no: c.no, src: 'system',
+                    region: region || '-', store: c.name, biz: c.bizNo && c.bizNo !== '-' ? c.bizNo : '',
+                    excelName: c.excelName || c.name || '-', viscoveryName: c.viscoveryName || '-', contractStatus: c.status || '-',
+                    agency: agencyName, agencyBiz: agencyBiz, rep: c.manager || '-',
+                    qty: qty, op: '청구', billAmt: billAmt, deposit: deposit, usd: usd,
+                    payback: paybackBase,
+                    payout: (deposit > 0 && deposit >= billAmt - 1) ? paybackBase : 0,
+                    unpaidFlag: false, memo: ''
+                });
+            });
+            return vsFinalize(rows, fx);
+        }
+
+        function vsApplyFilter(rows) {
+            let q = (vsFilter.q || '').toLowerCase().trim();
+            return rows.filter(r => {
+                if (q && !((r.store || '') + ' ' + (r.excelName || '') + ' ' + (r.viscoveryName || '') + ' ' + (r.agency || '') + ' ' + (r.rep || '') + ' ' + (r.biz || '') + ' ' + (r.region || '')).toLowerCase().includes(q)) return false;
+                if (vsFilter.region !== 'ALL' && r.region !== vsFilter.region) return false;
+                if (vsFilter.agency !== 'ALL' && r.agency !== vsFilter.agency) return false;
+                if (vsFilter.rep !== 'ALL' && r.rep !== vsFilter.rep) return false;
+                return true;
+            });
+        }
+        function vsSum(rows, f) { return rows.reduce((a, r) => a + (f(r) || 0), 0); }
+
+        /* ---------- 편집 ---------- */
+        function vsChangeOp(key, val) {
+            let ym = vsCurrentMonth;
+            if (vsEffectiveSource(ym) === 'excel') {
+                let i = parseInt(key.slice(1));
+                let snap = vsSettle.snapshots[ym];
+                let arr = toArr(snap.rows);
+                if (arr[i]) { arr[i].op = val; snap.rows = arr; }
+            } else {
+                if (!vsSettle.overrides[ym]) vsSettle.overrides[ym] = {};
+                if (!vsSettle.overrides[ym][key]) vsSettle.overrides[ym][key] = {};
+                vsSettle.overrides[ym][key].op = val;
+            }
+            vsSave();
+            renderViscoveryDashboard();
+        }
+        function vsEditRegion(key) {
+            if (!vsCanEdit()) return;
+            let ym = vsCurrentMonth;
+            let cur = '';
+            let row = vsBuildRows(ym).find(r => r.key === key);
+            if (row) cur = row.region === '-' ? '' : row.region;
+            let v = prompt('지역을 입력해 주세요 (예: 서울, 경기, 인천)', cur);
+            if (v === null) return;
+            v = v.trim() || '-';
+            if (vsEffectiveSource(ym) === 'excel') {
+                let i = parseInt(key.slice(1));
+                let snap = vsSettle.snapshots[ym];
+                let arr = toArr(snap.rows);
+                if (arr[i]) { arr[i].region = v; snap.rows = arr; }
+            } else {
+                if (!vsSettle.overrides[ym]) vsSettle.overrides[ym] = {};
+                if (!vsSettle.overrides[ym][key]) vsSettle.overrides[ym][key] = {};
+                vsSettle.overrides[ym][key].region = v;
+                let c = customerDataList.find(x => vsSafeKey(x.no) === key);
+                if (c && v !== '-') c.region = v;
+            }
+            vsSave();
+            renderViscoveryDashboard();
+        }
+
+        /* ---------- 필터 ---------- */
+        function vsOnFilterChange() {
+            vsFilter.q = document.getElementById('vsSearch').value;
+            vsFilter.region = document.getElementById('vsRegionSel').value;
+            vsFilter.agency = document.getElementById('vsAgencySel').value;
+            vsFilter.rep = document.getElementById('vsRepSel').value;
+            renderViscoveryDashboard();
+        }
+        function vsResetFilter() {
+            vsFilter = { q: '', region: 'ALL', agency: 'ALL', rep: 'ALL', op: 'ALL' };
+            renderViscoveryDashboard();
+        }
+        function vsSetOpFilter(op) { vsFilter.op = op; renderViscoveryDashboard(); }
+
+        /* ---------- 렌더링 ---------- */
+        function vsFillSelect(id, label, values, current) {
+            let el = document.getElementById(id);
+            if (!el) return;
+            let html = `<option value="ALL">${label}</option>`;
+            values.forEach(v => { html += `<option value="${escHtml(v)}"${v === current ? ' selected' : ''}>${escHtml(v)}</option>`; });
+            el.innerHTML = html;
+            if (current !== 'ALL' && !values.includes(current)) el.value = 'ALL';
+        }
+
+        function renderViscoveryDashboard() {
+            vsNormalize();
+            let months = vsAllMonths();
+            if (!vsCurrentMonth) {
+                vsCurrentMonth = months.includes('2026-10') ? '2026-10' : months[0];
+                months = vsAllMonths();
+            }
+            let monthSel = document.getElementById('vsMonthSelect');
+            if (!monthSel) return;
+            monthSel.innerHTML = months.map(m => `<option value="${m}"${m === vsCurrentMonth ? ' selected' : ''}>${vsMonthLabel(m)}</option>`).join('');
+            if (vsFxMonthInit !== vsCurrentMonth) vsInitFxForMonth(vsCurrentMonth);
+            document.getElementById('vsVatCheck').checked = vsVatExcl;
+
+            let ym = vsCurrentMonth;
+            document.getElementById('vsStatusText').innerText = `${vsMonthLabel(ym)} 정산 · AI스캐너 고객관리 + 수금관리 + 대리점 관리 데이터로 자동 산출 (청구 매장만 집계)`;
+
+            let rows = vsBuildRows(ym);
+            let fx = vsFxValue();
+            let unpaidRows = rows.filter(r => r.unpaid > 0);
+
+            let totScan = vsSum(rows, r => r.qty);
+            let totBill = vsSum(rows, r => r.billAmt);
+            let totDep = vsSum(rows, r => r.deposit);
+            let totUsd = vsSum(rows, r => r.usd);
+            let totPayback = vsSum(rows, r => r.payback);
+            let totPayout = vsSum(rows, r => r.payout);
+            let holdAmt = vsSum(rows, r => (r.payback > 0 && r.payout === 0) ? r.payback : 0);
+            let unpaidAmt = vsSum(unpaidRows, r => r.unpaid);
+            let agencyCnt = new Set(rows.map(r => r.agency)).size;
+
+            document.getElementById('vsKpiGrid').innerHTML = `
+                <div class="vs-kpi"><div class="l">총 관리 매장 (청구)</div><div class="v">${vsNum(rows.length)} <small>개 매장</small></div><div class="s">${vsNum(agencyCnt)}개 대리점</div></div>
+                <div class="vs-kpi"><div class="l">총 AI 스캐너</div><div class="v" style="color:#2563eb;">${vsNum(totScan)} <small>대</small></div><div class="s">청구 매장 수량 합계</div></div>
+                <div class="vs-kpi clickable" onclick="vsOpenUnpaid()"><div class="l"><span>미납 현황</span><span style="font-size:10px; background:#fff1f2; color:#e11d48; padding:1px 6px; border-radius:4px;">상세보기 🔍</span></div><div class="v" style="color:${unpaidRows.length ? '#e11d48' : '#334155'};">${vsNum(unpaidRows.length)}건 <small>(${vsNum(unpaidAmt)}원)</small></div><div class="s">${unpaidRows.length ? '입금 확인 필요 (클릭)' : '정상 수납 관리중'}</div></div>
+                <div class="vs-kpi"><div class="l">총 입금금액</div><div class="v" style="color:#059669;">${vsNum(totDep)}<small>원</small></div><div class="s">청구 ${vsNum(totBill)}원 ${vsVatExcl ? '(공급가)' : '(VAT 포함)'}</div></div>
+                <div class="vs-kpi"><div class="l">Viscovery 비용 (USD)</div><div class="v" style="color:#d97706;">$${vsNum(totUsd)}</div><div class="s">(${vsNum(totUsd * fx)}원 · ${fx}원/USD)</div></div>`;
+
+            let uniq = f => Array.from(new Set(rows.map(f).filter(v => v && v !== '-'))).sort((a, b) => a.localeCompare(b, 'ko'));
+            vsFillSelect('vsRegionSel', '전체 지역', uniq(r => r.region), vsFilter.region);
+            vsFillSelect('vsAgencySel', '전체 대리점', uniq(r => r.agency), vsFilter.agency);
+            vsFillSelect('vsRepSel', '전체 영업대표', uniq(r => r.rep), vsFilter.rep);
+            document.getElementById('vsSearch').value = vsFilter.q;
+            vsFilter.region = document.getElementById('vsRegionSel').value;
+            vsFilter.agency = document.getElementById('vsAgencySel').value;
+            vsFilter.rep = document.getElementById('vsRepSel').value;
+
+            vsRenderCharts(rows);
+
+            // 정산 내역 (엑셀명 / Viscovery명 / 계약상태 / 수량 / Viscovery 수수료 / 영업대표)
+            let list = vsApplyFilter(rows).sort((x, y) => (x.excelName || '').localeCompare(y.excelName || '', 'ko'));
+            let tbody = '';
+            if (list.length === 0) {
+                tbody = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:30px;">${vsMonthLabel(ym)}에 수금관리(청구)된 AI스캐너 매장이 없습니다.<br><span style="font-size:11px;">AI스캐너 고객관리에서 '사용' 상태이고, 해당 월 청구금액이 등록된 매장만 자동으로 집계됩니다. (익월 사용 매장은 제외)</span></td></tr>`;
+            }
+            list.forEach(r => {
+                let isUse = r.contractStatus === '사용';
+                tbody += `<tr>
+                    <td style="font-weight:700; color:#0f172a;">${escHtml(r.excelName)}</td>
+                    <td style="font-weight:600; color:#334155;">${escHtml(r.viscoveryName)}</td>
+                    <td class="text-center"><span class="vs-op-select ${isUse ? 'op-bill' : 'op-end'}">${escHtml(r.contractStatus)}</span></td>
+                    <td class="text-center" style="font-weight:700; color:#2563eb;">${r.qty}</td>
+                    <td class="text-right" style="font-weight:700; color:#d97706;">$${vsNum(r.usd)}</td>
+                    <td>${escHtml(r.rep)}</td>
+                </tr>`;
+            });
+            document.getElementById('vsTableBody').innerHTML = tbody;
+            document.getElementById('vsTableFoot').innerHTML = list.length ? `<tr style="background:#e2e8f0; font-weight:800;">
+                <td colspan="3" class="text-center">합계 (${vsNum(list.length)}개 매장)</td>
+                <td class="text-center">${vsNum(vsSum(list, r => r.qty))}</td>
+                <td class="text-right" style="color:#d97706;">$${vsNum(vsSum(list, r => r.usd))} <span style="font-size:11px; font-weight:500; color:#b45309;">(${vsNum(vsSum(list, r => r.usd) * fx)}원)</span></td>
+                <td></td></tr>` : '';
+            document.getElementById('vsTableTitle').innerText = `${vsMonthLabel(ym)} Viscovery 정산 내역 (${vsNum(list.length)}건)`;
+        }
+
+        function vsRenderCharts(rows) {
+            if (typeof Chart === 'undefined') return;
+            let act = rows.filter(r => r.op === '청구');
+            let reg = {};
+            rows.filter(r => r.op !== '해지').forEach(r => { if (r.region && r.region !== '-') reg[r.region] = (reg[r.region] || 0) + r.qty; });
+            let regE = Object.entries(reg).sort((a, b) => b[1] - a[1]);
+            let ag = {};
+            act.forEach(r => { if (r.agency && r.agency !== '-' && r.agency !== '기타' && !/cj/i.test(r.agency)) ag[r.agency] = (ag[r.agency] || 0) + r.qty; });
+            let agE = Object.entries(ag).sort((a, b) => b[1] - a[1]).slice(0, 7);
+
+            if (vsRegionChart) vsRegionChart.destroy();
+            if (vsAgencyChart) vsAgencyChart.destroy();
+            let c1 = document.getElementById('vsRegionChart');
+            let c2 = document.getElementById('vsAgencyChart');
+            if (c1) {
+                vsRegionChart = new Chart(c1, {
+                    type: 'bar',
+                    data: { labels: regE.map(e => e[0]), datasets: [{ data: regE.map(e => e[1]), backgroundColor: '#60a5fa', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 4 }] },
+                    options: {
+                        maintainAspectRatio: false, plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                        onClick: (e, els) => { if (els.length) { vsFilter.region = regE[els[0].index][0]; renderViscoveryDashboard(); } }
+                    }
+                });
+            }
+            if (c2) {
+                vsAgencyChart = new Chart(c2, {
+                    type: 'bar',
+                    data: { labels: agE.map(e => e[0]), datasets: [{ data: agE.map(e => e[1]), backgroundColor: 'rgba(20,160,140,.8)', borderColor: '#0f766e', borderWidth: 1, borderRadius: 4 }] },
+                    options: {
+                        indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+                        onClick: (e, els) => { if (els.length) { vsFilter.agency = agE[els[0].index][0]; renderViscoveryDashboard(); } }
+                    }
+                });
+            }
+        }
+
+        function vsOpenUnpaid() {
+            let rows = vsBuildRows(vsCurrentMonth).filter(r => r.unpaid > 0);
+            let html = rows.length ? rows.map(r => `<tr><td>${escHtml(r.region)}</td><td style="font-weight:700;">${escHtml(r.store)}</td><td>${escHtml(r.agency)}</td><td>${escHtml(r.rep)}</td><td class="text-center">${r.qty}</td><td class="text-right">${vsNum(r.billAmt)}원</td><td class="text-right" style="color:#dc2626; font-weight:700;">${vsNum(r.unpaid)}원</td></tr>`).join('')
+                : `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">미납 매장이 없습니다.</td></tr>`;
+            document.getElementById('vsUnpaidBody').innerHTML = html;
+            document.getElementById('vsUnpaidSummary').innerText = `총 미납 ${rows.length}건 / ${vsNum(vsSum(rows, r => r.unpaid))}원`;
+            openModal('vsUnpaidModal');
+        }
+
+        /* ---------- 엑셀 업로드 / 다운로드 ---------- */
+        // 정산 엑셀 시트(2차원 배열)를 파싱 (순수 함수)
+        function vsParseAoa(aoa) {
+            let hi = aoa.slice(0, 12).findIndex(r => r.some(c => String(c).trim() === '매장명'));
+            if (hi < 0) return null;
+            let hd = aoa[hi].map(h => String(h === undefined || h === null ? '' : h).replace(/\s+/g, ' ').trim());
+            let col = pred => hd.findIndex(pred);
+            let C = {
+                store: col(h => h === '매장명'), biz: col(h => h.includes('사업자번호')), region: col(h => h === '지역'),
+                addr: col(h => h === '주소'), agency: col(h => h.includes('대리점')), rep: col(h => h.includes('영업대표')),
+                qty: col(h => h.includes('수량')), op: col(h => h === '운영'), bill: col(h => h.includes('월청구비용')),
+                payback: col(h => h.toLowerCase().replace(/\s/g, '') === 'payback'), visc: col(h => h.toLowerCase().includes('viscovery')),
+                dep: col(h => h === '입금'), settle: col(h => h === '정산')
+            };
+            let get = (r, i) => (i >= 0 && r[i] !== undefined && r[i] !== null) ? r[i] : '';
+            let toNum = v => { if (typeof v === 'number') return v; let n = parseFloat(String(v).replace(/,/g, '')); return isNaN(n) ? 0 : n; };
+            let out = [];
+            for (let i = hi + 1; i < aoa.length; i++) {
+                let r = aoa[i] || [];
+                let store = String(get(r, C.store)).trim();
+                if (!store || store === '합계') continue;
+                let visRaw = get(r, C.visc);
+                let depRaw = get(r, C.dep);
+                let visIsNum = typeof visRaw === 'number' || (visRaw !== '' && !isNaN(parseFloat(visRaw)) && isFinite(visRaw));
+                let agencyRaw = String(get(r, C.agency)).trim();
+                let regionRaw = String(get(r, C.region)).trim();
+                let memo = '';
+                if (!visIsNum && String(visRaw).trim()) memo = String(visRaw).trim();
+                else if (typeof depRaw === 'string' && depRaw.trim()) memo = depRaw.trim();
+                out.push({
+                    region: (regionRaw && regionRaw.toLowerCase() !== 'none') ? regionRaw : '-',
+                    store: store, biz: vsFormatBiz(get(r, C.biz)), addr: String(get(r, C.addr)).trim(),
+                    agency: agencyRaw || (/cj/i.test(store) ? 'CJ-Foodville' : '기타'),
+                    rep: String(get(r, C.rep)).trim() || '미지정',
+                    qty: Math.round(toNum(get(r, C.qty))), op: (String(get(r, C.op)).trim() || '청구').replace('계약해지', '해지'),
+                    billBase: Math.round(toNum(get(r, C.bill))), paybackBase: Math.round(toNum(get(r, C.payback))),
+                    usdBase: visIsNum ? toNum(visRaw) : 0,
+                    deposit: typeof depRaw === 'number' ? Math.round(depRaw) : 0,
+                    payoutBase: Math.round(toNum(get(r, C.settle))),
+                    unpaidFlag: /미납/.test(String(depRaw)), memo: memo
+                });
+            }
+            return out;
+        }
+
+        function vsDetectMonth(fileName) {
+            let m = String(fileName).match(/(\d{2})(\d{2})(?!\d)/);
+            if (m) {
+                let yy = parseInt(m[1]), mm = parseInt(m[2]);
+                if (mm >= 1 && mm <= 12 && yy >= 20 && yy <= 40) return `20${m[1]}-${m[2]}`;
+            }
+            return vsCurrentMonth || '2026-10';
+        }
+
+        function handleVsExcelUpload(input) {
+            let file = input.files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function (evt) {
+                try {
+                    let wb = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+                    let parsed = null, usedSheet = '', inv = null;
+                    wb.SheetNames.forEach(name => {
+                        let aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
+                        if (/^inv$/i.test(name.trim())) {
+                            let t = aoa.find(r => String(r[1]).trim() === 'Total');
+                            if (t) inv = { usd: parseFloat(t[3]) || 0, qty: parseFloat(t[4]) || 0 };
+                            return;
+                        }
+                        if (!parsed) {
+                            let p = vsParseAoa(aoa);
+                            if (p) { parsed = p; usedSheet = name; }
+                        }
+                    });
+                    if (!parsed || parsed.length === 0) {
+                        alert('엑셀에서 "매장명" 헤더가 있는 정산 시트를 찾지 못했습니다.');
+                        return;
+                    }
+                    let ym = prompt('이 파일의 정산 연월을 확인해 주세요 (YYYY-MM)', vsDetectMonth(file.name));
+                    if (ym === null) return;
+                    ym = normalizeYM(ym.trim());
+                    if (!/^\d{4}-\d{2}$/.test(ym)) { alert('연월 형식이 올바르지 않습니다. 예: 2026-10'); return; }
+                    if (vsSettle.snapshots[ym] && !confirm(`${vsMonthLabel(ym)} 업로드본이 이미 있습니다. 새 파일로 덮어쓰시겠습니까?`)) return;
+
+                    vsSettle.snapshots[ym] = { fileName: file.name, sheet: usedSheet, uploadedAt: new Date().toLocaleString('ko-KR'), rows: parsed, inv: inv || { usd: 0, qty: 0 } };
+
+                    // 고객 정보에 지역/주소 보강 (비어있는 경우만)
+                    let filled = 0;
+                    parsed.forEach(r => {
+                        let bk = cleanBizNo(r.biz);
+                        let c = customerDataList.find(x => (bk && cleanBizNo(x.bizNo) === bk) || (x.name && x.name.trim() === r.store.trim()));
+                        if (!c) return;
+                        let changed = false;
+                        if (!c.region && r.region && r.region !== '-') { c.region = r.region; changed = true; }
+                        if (!c.address && r.addr) { c.address = r.addr; changed = true; }
+                        if (changed) filled++;
+                    });
+
+                    vsCurrentMonth = ym;
+                    vsSource = 'excel';
+                    vsFilter = { q: '', region: 'ALL', agency: 'ALL', rep: 'ALL', op: 'ALL' };
+                    vsInitFxForMonth(ym);
+                    vsSave();
+                    renderViscoveryDashboard();
+
+                    let rows = vsBuildRows(ym);
+                    alert(`[${vsMonthLabel(ym)} 정산 엑셀 업로드 완료]\n매장 ${rows.length}건 / 청구 ${rows.filter(r => r.op === '청구').length}건\nViscovery $${vsNum(vsSum(rows, r => r.usd))} / 입금 ${vsNum(vsSum(rows, r => r.deposit))}원 / 정산(지급) ${vsNum(vsSum(rows, r => r.payout))}원` + (filled ? `\n고객 데이터에 지역/주소 ${filled}건 보강` : ''));
+                } catch (err) {
+                    console.error('정산 엑셀 파싱 에러:', err);
+                    alert('정산 엑셀 처리 중 오류가 발생했습니다: ' + err.message);
+                } finally {
+                    input.value = '';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function vsDeleteSnapshot() {
+            let ym = vsCurrentMonth;
+            let snap = vsSettle.snapshots[ym];
+            if (!snap) return;
+            if (!confirm(`${vsMonthLabel(ym)} 업로드본(${snap.fileName})을 삭제하시겠습니까?\n삭제 후에는 시스템 연동 데이터 기준으로 표시됩니다.`)) return;
+            delete vsSettle.snapshots[ym];
+            vsSource = 'auto';
+            vsSave();
+            renderViscoveryDashboard();
+        }
+
+        function vsDownloadExcel(all) {
+            let rows = (all ? vsBuildRows(vsCurrentMonth) : vsApplyFilter(vsBuildRows(vsCurrentMonth)))
+                .sort((x, y) => (x.excelName || '').localeCompare(y.excelName || '', 'ko'));
+            if (rows.length === 0) { alert('다운로드할 정산 데이터가 없습니다.'); return; }
+            let fx = vsFxValue();
+            let data = rows.map((r, i) => ({
+                'NO.': i + 1, '정산연월': vsCurrentMonth, '엑셀명': r.excelName, 'Viscovery명': r.viscoveryName, '계약상태': r.contractStatus,
+                '수량': r.qty, 'Viscovery 수수료(USD)': r.usd, '적용환율': fx, 'Viscovery 수수료(원)': r.krw, '영업대표': r.rep
+            }));
+            data.push({
+                'NO.': '', '정산연월': '', '엑셀명': '합계', 'Viscovery명': '', '계약상태': '',
+                '수량': vsSum(rows, r => r.qty), 'Viscovery 수수료(USD)': vsSum(rows, r => r.usd), '적용환율': fx,
+                'Viscovery 수수료(원)': vsSum(rows, r => r.krw), '영업대표': ''
+            });
+            let ws = XLSX.utils.json_to_sheet(data);
+            ws['!cols'] = [{ wch: 6 }, { wch: 10 }, { wch: 26 }, { wch: 22 }, { wch: 10 }, { wch: 8 }, { wch: 22 }, { wch: 10 }, { wch: 20 }, { wch: 12 }];
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, `Viscovery정산_${vsCurrentMonth}`);
+            XLSX.writeFile(wb, `Viscovery정산_${vsCurrentMonth}.xlsx`);
+        }
+
+        /* ---------- Viscovery 인보이스(PDF) 대조 ---------- */
+        const VS_PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        const VS_PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        function vsLoadPdfJs() {
+            return new Promise((resolve, reject) => {
+                if (window.pdfjsLib) { resolve(window.pdfjsLib); return; }
+                let sc = document.createElement('script');
+                sc.src = VS_PDFJS_URL;
+                sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = VS_PDFJS_WORKER; resolve(window.pdfjsLib); };
+                sc.onerror = () => reject(new Error('PDF 읽기 모듈을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'));
+                document.head.appendChild(sc);
+            });
+        }
+
+        // PDF 텍스트 조각들(페이지별 [{str,x,y}])에서 인보이스 항목을 추출 (순수 함수)
+        function vsParseInvoicePages(pages) {
+            const MONTHS = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12 };
+            let items = [], totals = [], invNo = '', date = '', ym = '';
+            pages.forEach(pg => {
+                let toks = pg.filter(t => t.str && String(t.str).trim()).map(t => ({ s: String(t.str).trim(), x: t.x, y: t.y }))
+                    .sort((a, b) => (b.y - a.y) || (a.x - b.x));
+                let lines = [];
+                toks.forEach(t => {
+                    let L = lines[lines.length - 1];
+                    if (L && Math.abs(L.y - t.y) <= 4) L.t.push(t); else lines.push({ y: t.y, t: [t] });
+                });
+                let pageText = [];
+                lines.forEach(L => {
+                    let text = L.t.sort((a, b) => a.x - b.x).map(t => t.s).join(' ');
+                    pageText.push(text);
+                    let m = text.match(/【\s*([^】]+?)\s*】/);
+                    if (m) {
+                        let q = text.match(/(\d+)\s+Units?\b/i);
+                        let am = text.match(/(F\.O\.C\.|USD\s*[\d,]+)/gi);
+                        if (q && am) {
+                            let last = am[am.length - 1];
+                            let foc = /F\.O\.C/i.test(last);
+                            items.push({ name: m[1].trim(), qty: parseInt(q[1]), usd: foc ? 0 : parseInt(last.replace(/[^\d]/g, '')), foc: foc });
+                        }
+                    }
+                });
+                let all = pageText.join(' ');
+                let mi = all.match(/INV\s*No\s*:?\s*([A-Z0-9]+)/i); if (mi && !invNo) invNo = mi[1];
+                let md = all.match(/DATE\s*:?\s*(\d{1,2}\/\d{1,2}\/\d{4})/i); if (md && !date) date = md[1];
+                let mm = all.match(/For\s+([A-Za-z]+)\s+(\d{4})\s+Fees/i);
+                if (mm && !ym && MONTHS[mm[1].toLowerCase()]) ym = `${mm[2]}-${String(MONTHS[mm[1].toLowerCase()]).padStart(2, '0')}`;
+                let tm; let re = /Total\s*USD\s*([\d,]+)/gi;
+                while ((tm = re.exec(all)) !== null) totals.push(parseInt(tm[1].replace(/,/g, '')));
+            });
+            let sumUsd = items.reduce((a, i) => a + i.usd, 0);
+            return {
+                invNo, date, ym, items,
+                units: items.reduce((a, i) => a + i.qty, 0),
+                itemsUsd: sumUsd,
+                total: totals.length ? Math.max.apply(null, totals) : sumUsd
+            };
+        }
+
+        function vsNormName(s) { return String(s || '').toLowerCase().replace(/&/g, 'n').replace(/[^a-z0-9가-힣]/g, ''); }
+
+        // 인보이스 항목 vs 시스템(고객관리/수금관리) 대조 (순수 함수)
+        function vsReconcile(ym, inv) {
+            let sysAll = customerDataList.filter(c => c.type === 'AI스캐너');
+            let sysRows = vsBuildRows(ym);
+            let incl = {};
+            sysRows.forEach(r => { incl[r.key] = r; });
+            let usedKeys = new Set();
+            let out = [];
+            inv.items.forEach(it => {
+                let k = vsNormName(it.name);
+                let c = sysAll.find(x => vsNormName(x.viscoveryName) === k);
+                if (!c) c = sysAll.find(x => { let v = vsNormName(x.viscoveryName); return v && Math.min(v.length, k.length) >= 5 && (v.includes(k) || k.includes(v)); });
+                let row = { inv: it, cust: c || null, sys: null, status: '', note: '', diff: true };
+                if (!c) {
+                    row.status = '시스템에 없음';
+                    row.note = it.foc ? 'F.O.C. 항목' : 'Viscovery명이 일치하는 AI스캐너 고객이 없습니다 (미등록 또는 Viscovery명 불일치)';
+                    row.diff = !it.foc;
+                } else {
+                    let key = vsSafeKey(c.no);
+                    usedKeys.add(key);
+                    let r = incl[key];
+                    if (r) {
+                        row.sys = r;
+                        if (r.qty === it.qty && r.usd === it.usd) { row.status = '일치'; row.diff = false; }
+                        else { row.status = '수량/금액 차이'; row.note = `시스템 ${r.qty}대 $${vsNum(r.usd)} ↔ 인보이스 ${it.qty}대 $${vsNum(it.usd)}`; }
+                    } else if (it.foc) {
+                        row.status = '일치'; row.note = 'F.O.C. (시스템에서도 청구 제외)'; row.diff = false;
+                    } else if (c.status !== '사용') {
+                        row.status = '시스템 집계 제외'; row.note = `고객 상태가 '${c.status}'입니다`;
+                    } else {
+                        row.status = '시스템 집계 제외'; row.note = `${vsMonthLabel(ym)} 수금관리에 청구금액이 없습니다 (청구 미등록)`;
+                    }
+                }
+                out.push(row);
+            });
+            sysRows.forEach(r => {
+                if (!usedKeys.has(r.key)) {
+                    out.push({ inv: null, cust: null, sys: r, status: '인보이스에 없음', note: '시스템에서는 청구로 집계되었지만 Viscovery 인보이스에 없습니다 (익월 사용/미청구 여부 확인)', diff: true });
+                }
+            });
+            return { rows: out, sysUsd: vsSum(sysRows, r => r.usd), sysQty: vsSum(sysRows, r => r.qty), sysCount: sysRows.length };
+        }
+
+        function openVsInvoiceModal() {
+            vsNormalize();
+            openModal('vsInvoiceModal');
+            vsRenderInvoiceResult();
+        }
+
+        function vsRenderInvoiceResult() {
+            let ym = vsCurrentMonth;
+            let inv = vsSettle.invoices[ym];
+            let sum = document.getElementById('vsInvSummary');
+            let body = document.getElementById('vsInvBody');
+            if (!inv) {
+                document.getElementById('vsInvStatus').innerText = `${vsMonthLabel(ym)} 인보이스가 아직 업로드되지 않았습니다.`;
+                sum.innerHTML = '';
+                body.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:30px;">Viscovery 인보이스 PDF를 업로드하면 시스템 정산 내역과 자동으로 대조합니다.</td></tr>`;
+                return;
+            }
+            document.getElementById('vsInvStatus').innerText = `${inv.fileName} · INV ${inv.invNo || '-'} (${inv.date || '-'})`;
+            let rec = vsReconcile(ym, inv);
+            let diffUsd = rec.sysUsd - inv.total;
+            let diffRows = rec.rows.filter(r => r.diff);
+            sum.innerHTML = `<div class="vs-kpi-grid" style="margin-bottom:10px;">
+                <div class="vs-kpi"><div class="l">인보이스 합계</div><div class="v" style="color:#d97706;">$${vsNum(inv.total)}</div><div class="s">${inv.items.length}개 라인 · ${vsNum(inv.units)}대${inv.itemsUsd !== inv.total ? ' (항목합 $' + vsNum(inv.itemsUsd) + ')' : ''}</div></div>
+                <div class="vs-kpi"><div class="l">시스템 정산 합계</div><div class="v" style="color:#2563eb;">$${vsNum(rec.sysUsd)}</div><div class="s">${rec.sysCount}개 매장 · ${vsNum(rec.sysQty)}대</div></div>
+                <div class="vs-kpi" style="border-color:${diffUsd === 0 ? '#6ee7b7' : '#fda4af'};"><div class="l">차이 (시스템 − 인보이스)</div><div class="v" style="color:${diffUsd === 0 ? '#059669' : '#e11d48'};">${diffUsd === 0 ? '일치 ✓' : (diffUsd > 0 ? '+' : '−') + '$' + vsNum(Math.abs(diffUsd))}</div><div class="s">차이 항목 ${diffRows.length}건</div></div></div>`;
+            let onlyDiff = document.getElementById('vsInvDiffOnly').checked;
+            let list = onlyDiff ? diffRows : rec.rows;
+            if (list.length === 0) {
+                body.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#059669; padding:30px; font-weight:700;">모든 항목이 인보이스와 일치합니다 ✓</td></tr>`;
+                return;
+            }
+            let color = s => s === '일치' ? '#059669' : (s === '인보이스에 없음' ? '#7c3aed' : '#e11d48');
+            body.innerHTML = list.map(r => {
+                let invTxt = r.inv ? `${escHtml(r.inv.name)}<div style="font-size:10.5px; color:#64748b;">${r.inv.qty}대 · ${r.inv.foc ? 'F.O.C.' : '$' + vsNum(r.inv.usd)}</div>` : '<span style="color:#94a3b8;">-</span>';
+                let c = r.cust || (r.sys ? { excelName: r.sys.excelName, viscoveryName: r.sys.viscoveryName, status: r.sys.contractStatus } : null);
+                let sysTxt = c ? `${escHtml(c.excelName || c.name || '-')}<div style="font-size:10.5px; color:#64748b;">${escHtml(c.viscoveryName || '-')} · ${escHtml(c.status || '-')}</div>` : '<span style="color:#94a3b8;">-</span>';
+                let sysAmt = r.sys ? `${r.sys.qty}대 · $${vsNum(r.sys.usd)}` : '-';
+                return `<tr><td style="font-size:12px;">${invTxt}</td><td style="font-size:12px;">${sysTxt}</td><td class="text-center" style="font-size:12px;">${sysAmt}</td>
+                    <td class="text-center"><span style="font-size:11px; font-weight:700; color:${color(r.status)};">${escHtml(r.status)}</span></td><td style="font-size:11.5px; color:#475569;">${escHtml(r.note)}</td></tr>`;
+            }).join('');
+        }
+
+        async function handleVsInvoiceUpload(input) {
+            let file = input.files[0];
+            if (!file) return;
+            try {
+                document.getElementById('vsInvStatus').innerText = 'PDF 분석 중...';
+                let lib = await vsLoadPdfJs();
+                let pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+                let pages = [];
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    let page = await pdf.getPage(i);
+                    let tc = await page.getTextContent();
+                    pages.push(tc.items.map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5] })));
+                }
+                let parsed = vsParseInvoicePages(pages);
+                if (parsed.items.length === 0) { alert('인보이스에서 항목을 찾지 못했습니다. Viscovery 인보이스 PDF가 맞는지 확인해 주세요.'); document.getElementById('vsInvStatus').innerText = ''; return; }
+                vsNormalize();
+                let ym = parsed.ym || vsCurrentMonth;
+                vsSettle.invoices[ym] = { fileName: file.name, invNo: parsed.invNo, date: parsed.date, total: parsed.total, itemsUsd: parsed.itemsUsd, units: parsed.units, items: parsed.items };
+                if (ym !== vsCurrentMonth) { vsCurrentMonth = ym; vsFxMonthInit = ''; }
+                vsSave();
+                renderViscoveryDashboard();
+                vsRenderInvoiceResult();
+            } catch (err) {
+                console.error(err);
+                alert('인보이스 분석 중 오류가 발생했습니다: ' + err.message);
+                document.getElementById('vsInvStatus').innerText = '';
+            } finally {
+                input.value = '';
+            }
+        }
+
+        /* ---------- 정산내역서 (PDF) ---------- */
+        function vsNumToKorean(n) {
+            n = Math.round(n || 0);
+            if (n === 0) return '영';
+            const d = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+            const u = ['', '십', '백', '천'];
+            const b = ['', '만', '억', '조'];
+            let s = '', gi = 0;
+            while (n > 0) {
+                let chunk = n % 10000;
+                n = Math.floor(n / 10000);
+                let cs = '';
+                for (let i = 0; i < 4; i++) {
+                    let dg = Math.floor(chunk / Math.pow(10, i)) % 10;
+                    if (dg) cs = d[dg] + u[i] + cs;
+                }
+                if (cs) s = cs + b[gi] + s;
+                gi++;
+            }
+            return s;
+        }
+
+        function vsOpenExpense() {
+            vsNormalize();
+            let ym = vsCurrentMonth;
+            let el = id => document.getElementById(id);
+            if (!el('ex_title').value) el('ex_title').value = 'Viscovery AI스캐너 이용료 정산내역서';
+            el('ex_date').value = new Date().toISOString().slice(0, 10);
+            el('ex_drafter').value = currentUser ? (currentUser.name || currentUser.id || '') : '';
+            if (!el('ex_payee').value) el('ex_payee').value = 'Viscovery Inc.';
+            el('ex_invno').value = (vsSettle.invoices[ym] && vsSettle.invoices[ym].invNo) || '';
+            el('ex_memo').value = '';
+            openModal('vsExpenseModal');
+            vsRefreshExpense();
+        }
+
+        function vsExpenseData() {
+            let ym = vsCurrentMonth;
+            let rows = vsBuildRows(ym).sort((x, y) => (x.excelName || '').localeCompare(y.excelName || '', 'ko'));
+            let fx = vsFxValue();
+            let usd = vsSum(rows, r => r.usd);
+            return { ym, fx, rows, usd, krw: Math.round(usd * fx), qty: vsSum(rows, r => r.qty) };
+        }
+
+        function vsBuildExpenseHtml() {
+            let v = id => (document.getElementById(id).value || '').trim();
+            let D = vsExpenseData();
+            let ymLabel = vsMonthLabel(D.ym);
+            let th = 'border:1px solid #475569; background:#f1f5f9; padding:7px 4px; font-size:11.5px; font-weight:700; text-align:center;';
+            let td = 'border:1px solid #475569; padding:6px 8px; font-size:11.5px;';
+            let tr = 'text-align:right;';
+            let fmtDate = s => s ? s.replace(/-/g, '.') : '';
+            let font = "font-family:'Malgun Gothic','Noto Sans KR','Apple SD Gothic Neo',sans-serif; color:#0f172a; box-sizing:border-box; width:794px; background:#fff;";
+            let title = v('ex_title') || 'Viscovery AI스캐너 이용료 정산내역서';
+            let inv = vsSettle.invoices && vsSettle.invoices[D.ym];
+            let invNote = '';
+            if (inv) {
+                let diff = Math.round((D.usd - inv.total) * 100) / 100;
+                invNote = diff === 0
+                    ? `Viscovery 인보이스(${escHtml(inv.invNo || '-')}) 금액 USD ${vsNum(inv.total)}와 일치합니다.`
+                    : `Viscovery 인보이스(${escHtml(inv.invNo || '-')}) 금액 USD ${vsNum(inv.total)} 대비 USD ${vsNum(Math.abs(diff))} ${diff > 0 ? '초과' : '부족'}합니다.`;
+            }
+            let box = (label, value, sub) => `<td style="border:1px solid #475569; padding:10px 8px; text-align:center; width:25%;">
+                <div style="font-size:11px; color:#64748b; font-weight:700;">${label}</div>
+                <div style="font-size:17px; font-weight:800; margin-top:3px;">${value}</div>
+                ${sub ? `<div style="font-size:10.5px; color:#64748b; margin-top:2px;">${sub}</div>` : ''}</td>`;
+
+            return `<div style="${font} padding:38px 40px;">
+                <div style="text-align:center; font-size:24px; font-weight:800; letter-spacing:2px;">${escHtml(title)}</div>
+                <div style="text-align:center; font-size:14px; color:#475569; margin-top:6px;">${ymLabel}분</div>
+                <table style="border-collapse:collapse; width:100%; margin-top:22px;">
+                    <tr><td style="${th} width:15%;">정산 연월</td><td style="${td} width:35%;">${ymLabel}</td><td style="${th} width:15%;">작성일</td><td style="${td} width:35%;">${fmtDate(v('ex_date'))}</td></tr>
+                    <tr><td style="${th}">공급사</td><td style="${td}">${escHtml(v('ex_payee'))}</td><td style="${th}">작성자</td><td style="${td}">${escHtml(v('ex_drafter'))}</td></tr>
+                    <tr><td style="${th}">인보이스 번호</td><td style="${td}">${escHtml(v('ex_invno')) || '-'}</td><td style="${th}">적용 환율</td><td style="${td}">${D.fx.toLocaleString('ko-KR')}원 / USD</td></tr>
+                </table>
+                <table style="border-collapse:collapse; width:100%; margin-top:14px;">
+                    <tr>${box('정산 매장수', vsNum(D.rows.length) + '곳')}${box('총 수량', vsNum(D.qty) + '대')}${box('합계 (USD)', '$' + vsNum(D.usd))}${box('원화 환산액', vsNum(D.krw) + '원', '환율 ' + D.fx.toLocaleString('ko-KR') + '원 적용')}</tr>
+                </table>
+                <div style="margin-top:20px; font-size:13px; font-weight:800;">정산 내역</div>
+                <table style="border-collapse:collapse; width:100%; margin-top:6px;">
+                    <tr><th style="${th} width:32px;">NO</th><th style="${th}">엑셀명</th><th style="${th}">Viscovery명</th><th style="${th} width:62px; white-space:nowrap;">계약상태</th><th style="${th} width:42px; white-space:nowrap;">수량</th><th style="${th} width:104px;">Viscovery 수수료(USD)</th><th style="${th} width:66px; white-space:nowrap;">영업대표</th></tr>
+                    ${D.rows.map((r, i) => `<tr style="page-break-inside:avoid;"><td style="${td} text-align:center;">${i + 1}</td><td style="${td}">${escHtml(r.excelName)}</td><td style="${td}">${escHtml(r.viscoveryName)}</td><td style="${td} text-align:center; white-space:nowrap;">${escHtml(r.contractStatus)}</td><td style="${td} text-align:center;">${r.qty}</td><td style="${td} ${tr}">$${vsNum(r.usd)}</td><td style="${td} text-align:center; white-space:nowrap;">${escHtml(r.rep)}</td></tr>`).join('')}
+                    <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="4">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td} ${tr}">$${vsNum(D.usd)}</td><td style="${td}"></td></tr>
+                </table>
+                <div style="margin-top:14px; font-size:11px; color:#475569; line-height:1.7; page-break-inside:avoid;">
+                    ※ 본 내역은 AI스캐너 고객관리와 수금관리 데이터를 기준으로, ${ymLabel} 청구된 매장만 집계한 Viscovery 이용료 정산 내역입니다.<br>
+                    ${invNote ? '※ ' + invNote + '<br>' : ''}${v('ex_memo') ? '※ ' + escHtml(v('ex_memo')) : ''}
+                </div>
+            </div>`;
+        }
+
+        function vsRefreshExpense() {
+            let el = document.getElementById('vsExpensePreview');
+            if (el) el.innerHTML = vsBuildExpenseHtml();
+        }
+
+        function vsDownloadExpensePdf() {
+            let html = vsBuildExpenseHtml();
+            let fileName = `Viscovery_정산내역서_${vsCurrentMonth}.pdf`;
+            if (typeof html2pdf === 'undefined') {
+                alert('PDF 모듈을 불러오지 못해 인쇄 창으로 대체합니다. 인쇄 창에서 "PDF로 저장"을 선택해 주세요.');
+                vsPrintExpense();
+                return;
+            }
+            let holder = document.createElement('div');
+            holder.style.cssText = 'position:fixed; left:-10000px; top:0; width:794px; background:#fff;';
+            holder.innerHTML = html;
+            document.body.appendChild(holder);
+            html2pdf().set({
+                margin: 0, filename: fileName,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
+            }).from(holder).save().then(() => { holder.remove(); }).catch(err => {
+                holder.remove();
+                console.error(err);
+                alert('PDF 생성 중 오류가 발생했습니다. [인쇄 / PDF로 저장]을 이용해 주세요.');
+            });
+        }
+
+        function vsPrintExpense() {
+            let html = vsBuildExpenseHtml();
+            let w = window.open('', '_blank');
+            if (!w) { alert('팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 시도해 주세요.'); return; }
+            w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viscovery_정산내역서_${vsCurrentMonth}</title><style>@page{size:A4;margin:0;} body{margin:0;} </style></head><body>${html}</body></html>`);
+            w.document.close();
+            w.focus();
+            setTimeout(() => { w.print(); }, 400);
+        }
+
         function switchCategory(category, el, titleText) {
             document.querySelectorAll('.nav-item, .sub-item').forEach(m => m.classList.remove('active'));
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
@@ -3314,6 +4318,10 @@
                 renderBillingTable();
             }
             if (category === 'agencyContact') renderAgencyContactTable();
+            if (category === 'viscovery') {
+                renderViscoveryDashboard();
+                if (!vsLiveFx) vsFetchLiveFx(false);
+            }
             if (category === 'adminMap') {
                 renderAdminUsersTable();
                 renderTrashTable();
@@ -3759,7 +4767,7 @@
             // 가맹점 목록에서 등록된 사업자번호들 자동 취합
             customerDataList.forEach(c => {
                 let k = cleanBizNo(c.agencyBizNo || c.bizNo);
-                if (k && !taxContactMap[k]) {
+                if (k && !taxContactMap[k] && !agencyDeletedKeys[k]) {
                     taxContactMap[k] = {
                         bizNo: c.agencyBizNo || c.bizNo,
                         cleanKey: k,
@@ -3786,8 +4794,22 @@
                 );
             }
 
+            // 연결 매장수 필터 (옵션은 현재 검색 결과 기준의 연결 매장수 목록)
+            let storeCntOf = item => getStoresLinkedToAgency(item.cleanKey || cleanBizNo(item.bizNo)).length;
+            let cntSel = document.getElementById('agencyFilterStoreCnt');
+            let cntPrev = cntSel ? cntSel.value : 'ALL';
+            let cntBuckets = {};
+            list.forEach(item => { let n = storeCntOf(item); cntBuckets[n] = (cntBuckets[n] || 0) + 1; });
+            let cntKeys = Object.keys(cntBuckets).map(Number).sort((a, b) => a - b);
+            if (cntSel) {
+                cntSel.innerHTML = `<option value="ALL">전체 (${list.length}곳)</option>` +
+                    cntKeys.map(n => `<option value="${n}">${n === 0 ? '연결 없음 (0개)' : n + '개 매장'} · ${cntBuckets[n]}곳</option>`).join('');
+                cntSel.value = (cntPrev !== 'ALL' && cntBuckets[cntPrev] !== undefined) ? cntPrev : 'ALL';
+                if (cntSel.value !== 'ALL') list = list.filter(item => String(storeCntOf(item)) === cntSel.value);
+            }
+
             if (list.length === 0) {
-                tbody = `<tr><td colspan="11" style="text-align:center; color:#94a3b8; padding:30px;">등록된 대리점이 없습니다. [양식 다운로드] 후 대량업로드하거나 [+ 대리점 등록]을 진행해 주세요.</td></tr>`;
+                tbody = `<tr><td colspan="12" style="text-align:center; color:#94a3b8; padding:30px;">등록된 대리점이 없습니다. [양식 다운로드] 후 대량업로드하거나 [+ 대리점 등록]을 진행해 주세요.</td></tr>`;
             } else {
                 list.forEach((item, idx) => {
                     let k = item.cleanKey || cleanBizNo(item.bizNo);
@@ -3796,6 +4818,7 @@
                     let displayAgencyName = item.agencyName || (linkedStores[0] ? (linkedStores[0].agencyName || linkedStores[0].supplier || linkedStores[0].name) : '-');
 
                     tbody += `<tr>
+                        <td class="text-center"><input type="checkbox" class="agency-check" value="${k}" /></td>
                         <td class="text-center">${idx + 1}</td>
                         <td><strong style="color:#0f172a;">${item.bizNo}</strong></td>
                         <td style="font-weight:700; color:#1e293b;">${displayAgencyName}</td>
@@ -3822,6 +4845,8 @@
 
             let el = document.getElementById('agency-contact-tbody');
             if (el) el.innerHTML = tbody;
+            let selAll = document.getElementById('selectAllAgency');
+            if (selAll) selAll.checked = false;
             updateAgencyQuickSelectOptions();
         }
 
@@ -3832,10 +4857,38 @@
             if (!confirm(`[${item.agencyName || item.bizNo}] 대리점을 삭제하시겠습니까?\n(연결된 가맹점 매장은 유지되지만 대리점 연동 정보가 해제됩니다)`)) return;
 
             delete taxContactMap[cleanKey];
+            agencyDeletedKeys[cleanKey] = true;
             saveLocalStorage();
             syncToFirebase();
             renderAgencyContactTable();
             alert("대리점 정보가 삭제되었습니다.");
+        }
+
+        /* [추가] 대리점 관리 체크박스 선택 삭제 / 전체 삭제 */
+        function toggleSelectAllAgency(master) {
+            document.querySelectorAll('#agency-contact-tbody .agency-check').forEach(cb => cb.checked = master.checked);
+        }
+
+        function removeAgencyKeys(keys) {
+            keys.forEach(k => {
+                delete taxContactMap[k];
+                agencyDeletedKeys[k] = true;
+            });
+            saveLocalStorage();
+            syncToFirebase();
+            renderAgencyContactTable();
+            filterCustomerTable();
+        }
+
+        function deleteSelectedAgencies() {
+            let keys = Array.from(document.querySelectorAll('#agency-contact-tbody .agency-check:checked')).map(cb => cb.value);
+            if (keys.length === 0) {
+                alert("삭제할 대리점을 체크박스로 선택해 주세요. (상단 체크박스로 전체 선택 가능)");
+                return;
+            }
+            if (!confirm(`선택한 ${keys.length}개 대리점을 삭제하시겠습니까?\n(연결된 가맹점 매장은 유지되며, 대리점 목록에서만 제거됩니다)`)) return;
+            removeAgencyKeys(keys);
+            alert(`${keys.length}개 대리점이 삭제되었습니다.`);
         }
 
         function openAddAgencyContactModal() {
@@ -4234,6 +5287,27 @@
             document.getElementById('billSum_amount').innerText = sums.amount.toLocaleString() + ' 원';
             document.getElementById('billSum_paid').innerText = `${sums.paid.toLocaleString()} 원 (${sums.paidCount}건)`;
             document.getElementById('billSum_unpaid').innerText = `${sums.unpaid.toLocaleString()} 원 (${sums.unpaidCount}건)`;
+        }
+
+        /* [추가] 신규 청구 수동 등록: 회원번호 입력 시 회원명 자동 불러오기 */
+        function autoFillBillingName() {
+            let noEl = document.getElementById('b_no');
+            let nameEl = document.getElementById('b_name');
+            let hint = document.getElementById('b_name_hint');
+            if (!noEl || !nameEl) return;
+            let raw = noEl.value.trim();
+            let clearAuto = () => { if (nameEl.dataset.auto === '1') { nameEl.value = ''; nameEl.dataset.auto = ''; } };
+            if (!raw) { clearAuto(); if (hint) hint.innerHTML = ''; return; }
+            let key = normalizeMemberNo(raw);
+            let c = customerDataList.find(x => normalizeMemberNo(x.no) === key);
+            if (c) {
+                nameEl.value = c.name;
+                nameEl.dataset.auto = '1';
+                if (hint) hint.innerHTML = `<span style="color:#059669;">✓ 고객관리에서 회원명을 불러왔습니다.</span>`;
+            } else {
+                clearAuto();
+                if (hint) hint.innerHTML = `<span style="color:#94a3b8;">일치하는 회원번호가 없습니다. 회원명을 직접 입력해 주세요.</span>`;
+            }
         }
 
         function saveManualBilling() {
