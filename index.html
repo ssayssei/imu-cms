@@ -10,7 +10,6 @@
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <!-- Chart.js (차트 시각화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -296,7 +295,7 @@
         .editable-only { display: inline-flex; }
         body.readonly-mode .editable-only { display: none !important; }
 
-        #customerFileInput, #aiCustomerFileInput, #paymentFileInput, #billingFileInput, #agencyFileInput { display: none; }
+        #customerFileInput, #aiCustomerFileInput, #paymentFileInput, #billingFileInput, #agencyFileInput, #vsExcelInput, #vsInvoiceInput { display: none; }
             /* ===== [추가] Viscovery 정산 ===== */
         .vs-kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-bottom:12px; }
         .vs-kpi { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; }
@@ -1416,10 +1415,13 @@
                         </div>
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
-                        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="vsDownloadExcel(false)">📊 엑셀 다운로드</button>
-                        <button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="vsOpenExpense()">📄 정산내역서 PDF</button>
+                        <button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="vsOpenExpense()">📄 정산내역서</button>
                         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="openVsInvoiceModal()">🔍 인보이스 대조</button>
+                        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="vsOpenHistory()">🕘 확정 이력</button>
+                        <button class="btn btn-primary" id="vsConfirmBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="vsConfirmMonth()">✅ 정산 확정</button>
+                        <button class="btn btn-outline" id="vsUnconfirmBtn" style="font-size:12px; padding:6px 12px; display:none; color:#dc2626; border-color:#fca5a5;" onclick="vsUnconfirmMonth()">🔓 확정 해제</button>
                     </div>
+                    <div id="vsConfirmBanner" style="display:none; margin-top:10px; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:600;"></div>
                 </div>
 
                 <!-- KPI -->
@@ -1454,7 +1456,7 @@
 
                 <!-- 정산 목록 -->
                 <div class="content-card">
-                    <h3><span id="vsTableTitle">정산 내역</span><span style="font-size:11px; font-weight:400; color:#94a3b8;">해당 월 청구된 AI스캐너 매장만 자동 집계됩니다</span></h3>
+                    <h3><span id="vsTableTitle">정산 내역</span><div class="card-actions"><span id="vsManualInfo" style="font-size:11px; font-weight:500; color:#64748b; margin-right:8px;"></span><button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="vsOpenAddModal()">+ 매장 추가</button></div></h3>
                     <div class="table-container">
                         <table>
                             <thead>
@@ -1465,6 +1467,7 @@
                                     <th class="text-center">수량</th>
                                     <th class="text-right" style="color:#d97706;">Viscovery 수수료(USD)</th>
                                     <th>영업대표</th>
+                                    <th class="text-center" style="width:90px;">관리</th>
                                 </tr>
                             </thead>
                             <tbody id="vsTableBody"></tbody>
@@ -1508,7 +1511,7 @@
                     <div id="vsInvSummary"></div>
                     <div style="max-height:44vh; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">
                         <table>
-                            <thead><tr><th>인보이스 항목</th><th>시스템 고객</th><th class="text-center">시스템 집계</th><th class="text-center">결과</th><th>사유</th></tr></thead>
+                            <thead><tr><th>인보이스 항목</th><th>시스템 고객</th><th class="text-center">시스템 집계</th><th class="text-center">결과</th><th>사유</th><th class="text-center">조치</th></tr></thead>
                             <tbody id="vsInvBody"></tbody>
                         </table>
                     </div>
@@ -1516,7 +1519,51 @@
                 </div>
             </div>
 
+            <!-- [Viscovery] 정산 매장 수동 추가 모달 -->
+            <div id="vsAddModal" class="modal-overlay">
+                <div class="modal-card modal-card-large" style="width: 900px; max-height: 92vh; overflow:auto;">
+                    <div class="modal-header">
+                        <span id="vsAddTitle">➕ 정산 매장 추가</span>
+                        <span style="cursor:pointer;" onclick="closeModal('vsAddModal')">✕</span>
+                    </div>
+                    <div style="font-size:12px; color:#475569; line-height:1.7; margin-bottom:10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:10px 12px;">
+                        <strong>자동 정산 기준</strong> : AI스캐너 고객관리의 고객 중 <strong>① 계약상태가 '사용'</strong>이고 <strong>② 선택한 월의 청구관리/수금관리에 청구금액이 등록된</strong> 매장만 집계됩니다.<br>
+                        기준에 맞지 않아 빠진 매장은 아래에서 <strong>빠진 사유</strong>를 확인하고, 이번 달 정산에만 수동으로 추가할 수 있습니다. (고객 정보는 바뀌지 않습니다)
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
+                        <input type="text" id="vsAddSearch" placeholder="엑셀명, Viscovery명, 회원명, 회원번호 검색..." oninput="vsRenderAddList()" style="flex:1; min-width:240px; padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                        <span id="vsAddCount" style="font-size:12px; color:#64748b;"></span>
+                        <button class="btn btn-primary" onclick="vsAddSelected()">선택 추가</button>
+                    </div>
+                    <div style="max-height:46vh; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">
+                        <table>
+                            <thead><tr>
+                                <th class="text-center" style="width:36px;"><input type="checkbox" id="vsAddAll" onclick="vsToggleAddAll(this)"></th>
+                                <th>엑셀명</th><th>Viscovery명</th><th class="text-center">계약상태</th><th class="text-center">수량</th><th>정산에서 빠진 사유</th><th class="text-center" style="width:70px;">추가</th>
+                            </tr></thead>
+                            <tbody id="vsAddBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; margin-top:12px;"><button class="btn btn-outline" onclick="closeModal('vsAddModal')">닫기</button></div>
+                </div>
+            </div>
+
             <!-- [Viscovery] 정산내역서 모달 (지출결의서 증빙용) -->
+            <div id="vsHistoryModal" class="modal-overlay">
+                <div class="modal-card modal-card-large" style="width: 720px; max-height: 88vh; overflow:auto;">
+                    <div class="modal-header">
+                        <span>🕘 정산 확정 이력</span>
+                        <span style="cursor:pointer;" onclick="closeModal('vsHistoryModal')">✕</span>
+                    </div>
+                    <label style="font-size:12px; color:#475569; display:flex; align-items:center; gap:4px; margin-bottom:8px; cursor:pointer;"><input type="checkbox" id="vsHistMonthOnly" onchange="vsRenderHistory()"> 조회 연월만 보기</label>
+                    <div class="table-container"><table>
+                        <thead><tr><th>일시</th><th>정산 연월</th><th>구분</th><th>처리자</th><th>확정 내용</th></tr></thead>
+                        <tbody id="vsHistBody"></tbody>
+                    </table></div>
+                    <div style="display:flex; justify-content:flex-end; margin-top:14px;"><button class="btn btn-outline" onclick="closeModal('vsHistoryModal')">닫기</button></div>
+                </div>
+            </div>
+
             <div id="vsExpenseModal" class="modal-overlay">
                 <div class="modal-card modal-card-large" style="width: 920px; max-height: 92vh; overflow:auto;">
                     <div class="modal-header">
@@ -1528,18 +1575,18 @@
                         <div class="form-group"><label>작성일</label><input type="date" id="ex_date" oninput="vsRefreshExpense()"></div>
                         <div class="form-group"><label>작성자</label><input type="text" id="ex_drafter" oninput="vsRefreshExpense()"></div>
                         <div class="form-group"><label>공급사</label><input type="text" id="ex_payee" oninput="vsRefreshExpense()"></div>
-                        <div class="form-group"><label>인보이스 번호</label><input type="text" id="ex_invno" placeholder="예: IN2026102201" oninput="vsRefreshExpense()"></div>
-                        <div class="form-group" style="grid-column: span 2;"><label>적용 환율</label><div style="padding-top:8px; font-size:12px; color:#64748b;">정산 화면 상단의 환율 입력값이 적용됩니다.</div></div>
+                        <div class="form-group" style="grid-column: span 3;"><label>적용 환율</label><div style="padding-top:8px; font-size:12px; color:#64748b;">정산 화면 상단의 환율 입력값이 적용됩니다.</div></div>
                     </div>
                     <div class="form-group"><label>비고</label><input type="text" id="ex_memo" placeholder="추가로 기재할 내용이 있으면 입력해 주세요" oninput="vsRefreshExpense()"></div>
                     <div style="background:#e2e8f0; padding:12px; border-radius:6px; max-height:46vh; overflow:auto;">
                         <div id="vsExpensePreview" style="width:794px; margin:0 auto; background:#fff;"></div>
                     </div>
+                    <div style="font-size:11px; color:#64748b; margin-top:8px; line-height:1.6;">※ PDF 다운로드는 화면 그대로 이미지 형태의 PDF로 저장됩니다. 글자 선택·검색이 필요하면 [인쇄]에서 'PDF로 저장'을 선택하고 '머리글 및 바닥글'을 해제해 주세요.</div>
                     <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
                         <button class="btn btn-outline" onclick="closeModal('vsExpenseModal')">닫기</button>
                         <button class="btn btn-outline" onclick="vsDownloadExcel(true)">📊 엑셀 다운로드</button>
-                        <button class="btn btn-outline" onclick="vsPrintExpense()">인쇄 / PDF로 저장</button>
-                        <button class="btn btn-primary" onclick="vsDownloadExpensePdf()">PDF 다운로드</button>
+                        <button class="btn btn-outline" id="vsPdfBtn" onclick="vsDownloadPdf()">⬇ PDF 다운로드</button>
+                        <button class="btn btn-primary" onclick="vsPrintExpense()">🖨 인쇄</button>
                     </div>
                 </div>
             </div>
@@ -1759,7 +1806,7 @@
         // 형태: { "사업자번호": { bizNo, agencyName, taxName, taxPhone, taxEmail, memo } }
         let taxContactMap = {};
         let bulkUploadHistory = [];   // [추가] 대량등록 회차 이력
-        let vsSettle = { snapshots: {}, overrides: {}, fx: {} };   // [추가] Viscovery 정산 (월별 업로드본 / 수정값 / 환율)
+        let vsSettle = { snapshots: {}, overrides: {}, fx: {}, confirmed: {}, confirmLog: [] };   // [추가] Viscovery 정산 (월별 업로드본 / 수정값 / 환율)
         let agencyDeletedKeys = {};   // [추가] 삭제한 대리점 사업자번호 키 (고객 데이터로부터 자동 재생성 방지)
 
         let commissionRateMap = {
@@ -3495,10 +3542,17 @@
 
         function vsNormalize() {
             if (!vsSettle || typeof vsSettle !== 'object') vsSettle = {};
-            ['snapshots', 'overrides', 'fx', 'invoices'].forEach(k => {
+            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed'].forEach(k => {
                 if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
             });
+            if (!Array.isArray(vsSettle.confirmLog)) vsSettle.confirmLog = [];
         }
+        /* ===== 정산 확정 ==========================================================
+           vsSettle.confirmed[연월] = { at, by, fx, vatExcl, rows:[확정 시점 정산 행 스냅샷] }
+           확정된 월은 시스템 데이터가 바뀌어도 스냅샷 값 그대로 표시/출력되며 수정할 수 없습니다.
+           확정·해제는 관리자만 가능하고, 이력은 vsSettle.confirmLog 에 남깁니다. */
+        function vsIsConfirmed(ym) { return !!(vsSettle && vsSettle.confirmed && vsSettle.confirmed[ym]); }
+        function vsIsAdmin() { return !!(currentUser && currentUser.role === '관리자'); }
         function vsSafeKey(k) { return String(k === undefined || k === null ? '' : k).replace(/[.#$\[\]\/]/g, '_'); }
         function vsNum(n) { return new Intl.NumberFormat('ko-KR').format(Math.round(n || 0)); }
         function vsSave() { saveLocalStorage(); syncToFirebase(); }
@@ -3535,6 +3589,7 @@
         function vsMonthLabel(ym) { let p = ym.split('-'); return `${p[0]}년 ${parseInt(p[1])}월`; }
 
         function vsFxValue() {
+            if (vsCurrentMonth && vsIsConfirmed(vsCurrentMonth)) return vsSettle.confirmed[vsCurrentMonth].fx;
             let v = parseFloat((document.getElementById('vsFxInput') || {}).value);
             return (isNaN(v) || v <= 0) ? 1350 : v;
         }
@@ -3555,7 +3610,7 @@
                         let el = document.getElementById('vsFxInput');
                         if (el && (force || !vsSettle.fx[vsCurrentMonth])) {
                             el.value = vsLiveFx;
-                            if (force) { vsSettle.fx[vsCurrentMonth] = vsLiveFx; vsSave(); }
+                            if (force && !vsIsConfirmed(vsCurrentMonth)) { vsSettle.fx[vsCurrentMonth] = vsLiveFx; vsSave(); }
                             renderViscoveryDashboard();
                         }
                     }
@@ -3563,11 +3618,12 @@
             } catch (e) { console.warn('환율 조회 실패(기본값 유지):', e); }
         }
         function vsOnFxChange() {
+            if (vsIsConfirmed(vsCurrentMonth)) { renderViscoveryDashboard(); return; }
             vsSettle.fx[vsCurrentMonth] = vsFxValue();
             vsSave();
             renderViscoveryDashboard();
         }
-        function vsOnVatChange(checked) { vsVatExcl = checked; renderViscoveryDashboard(); }
+        function vsOnVatChange(checked) { if (vsIsConfirmed(vsCurrentMonth)) { renderViscoveryDashboard(); return; } vsVatExcl = checked; renderViscoveryDashboard(); }
         function vsChangeMonth(ym) {
             vsCurrentMonth = ym;
             vsSource = 'auto';
@@ -3606,21 +3662,66 @@
             return hit || null;
         }
 
-        /* 시스템 데이터 기반 자동 정산 행 생성
-           - 대상: AI스캐너 고객 중 '사용' 상태이면서 해당 월에 수금관리(청구)에 청구금액이 있는 매장만
-           - 청구금액 / 입금금액: 수금관리(청구관리) 데이터
-           - 익월 사용 등 해당 월에 청구되지 않은 매장은 목록 및 Viscovery 비용에서 자동 제외 */
+        /* ===== 정산 대상 판정 ====================================================
+           [자동 기준] AI스캐너 고객관리의 고객 중
+             ① 계약상태가 '사용' 이고
+             ② 선택한 월의 청구관리/수금관리에 청구금액(0원 초과)이 등록된 매장
+           (익월 사용 등 해당 월에 청구가 없는 매장은 자동으로 제외됩니다)
+           [수동 조정] vsSettle.manual[연월][회원키] = 'add'(강제 포함) | 'remove'(강제 제외)
+                       월별로 저장되며 고객 정보 자체는 바뀌지 않습니다.
+        ========================================================================= */
+        function vsBillIncl(c, ym) {
+            let nkey = normalizeMemberNo(c.no);
+            let pay = (paymentDataMap[nkey] || {})[ym] || {};
+            let bill = getBillingInfoForMonth(nkey, ym);
+            return { pay: pay, amount: bill.amount !== null ? bill.amount : (pay.amount || 0) };
+        }
+        function vsAutoIncluded(c, ym) {
+            return c.status === '사용' && vsBillIncl(c, ym).amount > 0;
+        }
+        function vsManualState(ym, key) {
+            return ((vsSettle.manual || {})[ym] || {})[key] || '';
+        }
+        function vsExcludeReason(c, ym) {
+            let key = vsSafeKey(c.no);
+            if (vsManualState(ym, key) === 'remove') return '수동 제외됨 (자동 기준으로는 정산 대상)';
+            if (c.status !== '사용') return `계약상태가 '${c.status || '-'}'`;
+            if (vsBillIncl(c, ym).amount > 0) return '';
+            let sm = normalizeYM(c.startDate || '');
+            if (/^\d{4}-\d{2}$/.test(sm) && sm > ym) return `청구시작일(${c.startDate})이 ${vsMonthLabel(ym)} 이후 (익월 사용)`;
+            return `${vsMonthLabel(ym)} 청구관리/수금관리에 청구금액이 없음`;
+        }
+        function vsSetInclude(key, include) {
+            vsNormalize();
+            let ym = vsCurrentMonth;
+            if (vsIsConfirmed(ym)) return false;
+            let c = customerDataList.find(x => x.type === 'AI스캐너' && vsSafeKey(x.no) === key);
+            if (!c) return false;
+            let auto = vsAutoIncluded(c, ym);
+            if (!vsSettle.manual[ym]) vsSettle.manual[ym] = {};
+            if (include === auto) delete vsSettle.manual[ym][key];
+            else vsSettle.manual[ym][key] = include ? 'add' : 'remove';
+            if (Object.keys(vsSettle.manual[ym]).length === 0) delete vsSettle.manual[ym];
+            return true;
+        }
+
+        /* 시스템 데이터 기반 자동 정산 행 생성 (위 판정 기준 + 수동 조정 반영)
+           - 청구금액 / 입금금액: 수금관리(청구관리) 데이터 */
         function vsBuildRows(ym) {
+            if (vsIsConfirmed(ym)) return JSON.parse(JSON.stringify(vsSettle.confirmed[ym].rows || []));
             let fx = vsFxValue();
             let f = vsVatExcl ? 1.1 : 1;
+            let manual = (vsSettle.manual && vsSettle.manual[ym]) || {};
             let rows = [];
-            customerDataList.filter(c => c.type === 'AI스캐너' && c.status === '사용').forEach(c => {
-                let nkey = normalizeMemberNo(c.no);
-                let pay = (paymentDataMap[nkey] || {})[ym] || {};
-                let bill = getBillingInfoForMonth(nkey, ym);
-                let billIncl = bill.amount !== null ? bill.amount : (pay.amount || 0);
-                if (!(billIncl > 0)) return;
-                let depIncl = pay.paid || 0;
+            customerDataList.filter(c => c.type === 'AI스캐너').forEach(c => {
+                let key = vsSafeKey(c.no);
+                let auto = vsAutoIncluded(c, ym);
+                let ms = manual[key] || '';
+                let include = ms === 'add' ? true : (ms === 'remove' ? false : auto);
+                if (!include) return;
+                let bi = vsBillIncl(c, ym);
+                let billIncl = bi.amount;
+                let depIncl = bi.pay.paid || 0;
                 let qty = (c.qty !== undefined && c.qty !== null) ? c.qty : 1;
                 let usd = c.viscoveryFee > 0 ? c.viscoveryFee : vsCalcViscUsd(qty);
                 let agencyName = c.agencyName || c.agency || c.supplier || '-';
@@ -3632,7 +3733,7 @@
                 let deposit = Math.round(depIncl / f);
                 let paybackBase = Math.round((c.commission || 0) / f);
                 rows.push({
-                    key: vsSafeKey(c.no), no: c.no, src: 'system',
+                    key: key, no: c.no, src: 'system', manualAdded: ms === 'add' && !auto,
                     region: region || '-', store: c.name, biz: c.bizNo && c.bizNo !== '-' ? c.bizNo : '',
                     excelName: c.excelName || c.name || '-', viscoveryName: c.viscoveryName || '-', contractStatus: c.status || '-',
                     agency: agencyName, agencyBiz: agencyBiz, rep: c.manager || '-',
@@ -3643,6 +3744,123 @@
                 });
             });
             return vsFinalize(rows, fx);
+        }
+
+        /* 정산 확정 / 확정 해제 (관리자 전용) */
+        function vsNowStr() { return new Date().toLocaleString('ko-KR', { hour12: false }); }
+        function vsConfirmMonth() {
+            vsNormalize();
+            let ym = vsCurrentMonth;
+            if (!vsIsAdmin()) { alert('관리자만 정산을 확정할 수 있습니다.'); return; }
+            if (vsIsConfirmed(ym)) return;
+            let rows = vsBuildRows(ym);
+            if (rows.length === 0) { alert('정산 대상 매장이 없어 확정할 수 없습니다.'); return; }
+            let usd = vsSum(rows, r => r.usd), qty = vsSum(rows, r => r.qty);
+            if (!confirm(`${vsMonthLabel(ym)} 정산을 확정할까요?\n\n· ${rows.length}개 매장 / ${qty}대 / $${vsNum(usd)}\n· 확정 후에는 고객·수금 데이터가 바뀌어도 이 내용이 그대로 유지됩니다.\n· 관리자는 언제든 확정을 해제할 수 있습니다.`)) return;
+            let by = currentUser.name || currentUser.id;
+            vsSettle.confirmed[ym] = { at: vsNowStr(), by: by, fx: vsFxValue(), vatExcl: vsVatExcl, rows: rows };
+            vsSettle.fx[ym] = vsSettle.confirmed[ym].fx;
+            vsSettle.confirmLog.push({ ym: ym, action: '확정', by: by, at: vsSettle.confirmed[ym].at, stores: rows.length, qty: qty, usd: usd });
+            vsSave();
+            renderViscoveryDashboard();
+        }
+        function vsUnconfirmMonth() {
+            vsNormalize();
+            let ym = vsCurrentMonth;
+            if (!vsIsAdmin()) { alert('관리자만 확정을 해제할 수 있습니다.'); return; }
+            if (!vsIsConfirmed(ym)) return;
+            if (!confirm(`${vsMonthLabel(ym)} 정산 확정을 해제할까요?\n해제하면 현재 시스템 데이터 기준으로 다시 집계되며 수정할 수 있습니다.`)) return;
+            vsVatExcl = !!vsSettle.confirmed[ym].vatExcl;
+            delete vsSettle.confirmed[ym];
+            vsSettle.confirmLog.push({ ym: ym, action: '확정 해제', by: currentUser.name || currentUser.id, at: vsNowStr() });
+            vsSave();
+            vsFxMonthInit = '';
+            renderViscoveryDashboard();
+        }
+
+        /* 표에서 제외 / 추가 취소 */
+        function vsRemoveRow(key) {
+            let ym = vsCurrentMonth;
+            if (vsIsConfirmed(ym)) { alert('확정된 정산입니다. 관리자가 확정을 해제한 뒤 수정할 수 있습니다.'); return; }
+            let r = vsBuildRows(ym).find(x => x.key === key);
+            if (!r) return;
+            let msg = r.manualAdded
+                ? `[${r.excelName}] 수동 추가를 취소할까요?`
+                : `[${r.excelName}] 매장을 ${vsMonthLabel(ym)} 정산에서 제외할까요?\n(고객 정보는 바뀌지 않으며, [+ 매장 추가]에서 다시 추가할 수 있습니다)`;
+            if (!confirm(msg)) return;
+            vsSetInclude(key, false);
+            vsSave();
+            renderViscoveryDashboard();
+        }
+
+        /* 인보이스 대조 창에서 바로 추가 / 제외 */
+        function vsReconInclude(key, include) {
+            if (vsIsConfirmed(vsCurrentMonth)) { alert('확정된 정산입니다. 관리자가 확정을 해제한 뒤 수정할 수 있습니다.'); return; }
+            vsSetInclude(key, include);
+            vsSave();
+            renderViscoveryDashboard();
+            vsRenderInvoiceResult();
+        }
+
+        /* 매장 추가 팝업 */
+        function vsOpenAddModal() {
+            vsNormalize();
+            if (vsIsConfirmed(vsCurrentMonth)) { alert('확정된 정산입니다. 관리자가 확정을 해제한 뒤 수정할 수 있습니다.'); return; }
+            document.getElementById('vsAddSearch').value = '';
+            openModal('vsAddModal');
+            vsRenderAddList();
+        }
+        function vsRenderAddList() {
+            let ym = vsCurrentMonth;
+            let q = (document.getElementById('vsAddSearch').value || '').toLowerCase().trim();
+            let incl = new Set(vsBuildRows(ym).map(r => r.key));
+            let list = customerDataList.filter(c => c.type === 'AI스캐너' && !incl.has(vsSafeKey(c.no)))
+                .filter(c => !q || [c.name, c.excelName, c.viscoveryName, c.no, c.agencyName].join(' ').toLowerCase().includes(q));
+            list.sort((a, b) => ((a.status === '사용' ? 0 : 1) - (b.status === '사용' ? 0 : 1)) ||
+                String(a.excelName || a.name || '').localeCompare(String(b.excelName || b.name || ''), 'ko'));
+            document.getElementById('vsAddTitle').innerText = `➕ 정산 매장 추가 (${vsMonthLabel(ym)})`;
+            document.getElementById('vsAddCount').innerText = `현재 정산에서 빠져 있는 AI스캐너 매장 ${vsNum(list.length)}곳`;
+            let body = document.getElementById('vsAddBody');
+            if (!list.length) {
+                body.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">추가할 수 있는 매장이 없습니다.</td></tr>`;
+            } else {
+                body.innerHTML = list.map(c => {
+                    let key = vsSafeKey(c.no);
+                    let qty = (c.qty !== undefined && c.qty !== null) ? c.qty : 1;
+                    let isUse = c.status === '사용';
+                    return `<tr>
+                        <td class="text-center"><input type="checkbox" class="vs-add-check" value="${escHtml(key)}"></td>
+                        <td style="font-weight:700;">${escHtml(c.excelName || c.name || '-')}</td>
+                        <td>${escHtml(c.viscoveryName || '-')}</td>
+                        <td class="text-center"><span class="vs-op-select ${isUse ? 'op-bill' : 'op-end'}">${escHtml(c.status || '-')}</span></td>
+                        <td class="text-center">${qty}</td>
+                        <td style="font-size:11.5px; color:#c2410c;">${escHtml(vsExcludeReason(c, ym))}</td>
+                        <td class="text-center"><button class="btn-action" style="color:#2563eb;" onclick="vsAddOne('${escHtml(key)}')">추가</button></td>
+                    </tr>`;
+                }).join('');
+            }
+            let all = document.getElementById('vsAddAll');
+            if (all) all.checked = false;
+        }
+        function vsToggleAddAll(master) {
+            document.querySelectorAll('#vsAddBody .vs-add-check').forEach(cb => cb.checked = master.checked);
+        }
+        function vsAddKeys(keys) {
+            let n = 0;
+            keys.forEach(k => { if (vsSetInclude(k, true)) n++; });
+            if (n > 0) {
+                vsSave();
+                renderViscoveryDashboard();
+                vsRenderAddList();
+            }
+            return n;
+        }
+        function vsAddOne(key) { vsAddKeys([key]); }
+        function vsAddSelected() {
+            let keys = Array.from(document.querySelectorAll('#vsAddBody .vs-add-check:checked')).map(cb => cb.value);
+            if (keys.length === 0) { alert('추가할 매장을 체크해 주세요.'); return; }
+            let n = vsAddKeys(keys);
+            alert(`${n}개 매장이 ${vsMonthLabel(vsCurrentMonth)} 정산에 추가되었습니다.`);
         }
 
         function vsApplyFilter(rows) {
@@ -3736,8 +3954,18 @@
             document.getElementById('vsVatCheck').checked = vsVatExcl;
 
             let ym = vsCurrentMonth;
-            document.getElementById('vsStatusText').innerText = `${vsMonthLabel(ym)} 정산 · AI스캐너 고객관리 + 수금관리 + 대리점 관리 데이터로 자동 산출 (청구 매장만 집계)`;
+            document.getElementById('vsStatusText').innerText = `${vsMonthLabel(ym)} 정산 · 자동 기준: AI스캐너 고객 중 계약상태 '사용' + 해당 월 청구금액이 등록된 매장 (필요 시 수동 추가/제외)`;
 
+            let cf = vsSettle.confirmed[ym] || null;
+            if (cf) { vsVatExcl = !!cf.vatExcl; document.getElementById('vsVatCheck').checked = vsVatExcl; document.getElementById('vsFxInput').value = cf.fx; }
+            document.getElementById('vsFxInput').disabled = !!cf;
+            document.getElementById('vsVatCheck').disabled = !!cf;
+            let banner = document.getElementById('vsConfirmBanner');
+            banner.style.display = 'block';
+            if (cf) { banner.style.cssText = 'display:block; margin-top:10px; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:600; background:#ecfdf5; color:#047857; border:1px solid #6ee7b7;'; banner.innerText = `🔒 확정된 정산 · ${cf.at} · ${cf.by} (확정 시점의 내용이 고정되어 있습니다${vsIsAdmin() ? '' : ' · 해제는 관리자만 가능'})`; }
+            else { banner.style.cssText = 'display:block; margin-top:10px; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:600; background:#fffbeb; color:#b45309; border:1px solid #fcd34d;'; banner.innerText = '📝 미확정 · 시스템 데이터에 따라 내용이 계속 바뀝니다. 확정하면 현재 내용으로 고정됩니다.'; }
+            document.getElementById('vsConfirmBtn').style.display = (!cf && vsIsAdmin()) ? '' : 'none';
+            document.getElementById('vsUnconfirmBtn').style.display = (cf && vsIsAdmin()) ? '' : 'none';
             let rows = vsBuildRows(ym);
             let fx = vsFxValue();
             let unpaidRows = rows.filter(r => r.unpaid > 0);
@@ -3770,21 +3998,30 @@
 
             vsRenderCharts(rows);
 
-            // 정산 내역 (엑셀명 / Viscovery명 / 계약상태 / 수량 / Viscovery 수수료 / 영업대표)
+            // 정산 내역 (엑셀명 / Viscovery명 / 계약상태 / 수량 / Viscovery 수수료 / 영업대표 / 관리)
             let list = vsApplyFilter(rows).sort((x, y) => (x.excelName || '').localeCompare(y.excelName || '', 'ko'));
+            let canEdit = vsCanEdit() && !cf;
+            let mm = (vsSettle.manual && vsSettle.manual[ym]) || {};
+            let nAdd = Object.values(mm).filter(x => x === 'add').length;
+            let nRem = Object.values(mm).filter(x => x === 'remove').length;
+            let infoEl = document.getElementById('vsManualInfo');
+            if (infoEl) infoEl.innerText = cf ? '확정본 (수정 불가)' : (nAdd || nRem) ? `수동 조정: 추가 ${nAdd}건 · 제외 ${nRem}건` : '자동 기준 그대로 집계 중';
             let tbody = '';
             if (list.length === 0) {
-                tbody = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:30px;">${vsMonthLabel(ym)}에 수금관리(청구)된 AI스캐너 매장이 없습니다.<br><span style="font-size:11px;">AI스캐너 고객관리에서 '사용' 상태이고, 해당 월 청구금액이 등록된 매장만 자동으로 집계됩니다. (익월 사용 매장은 제외)</span></td></tr>`;
+                tbody = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:30px;">${vsMonthLabel(ym)} 정산 대상 매장이 없습니다.<br><span style="font-size:11px;">자동 기준(계약상태 '사용' + 해당 월 청구금액 등록)에 맞는 매장이 없거나 필터 조건을 확인해 주세요. [+ 매장 추가]로 직접 추가할 수도 있습니다.</span></td></tr>`;
             }
             list.forEach(r => {
                 let isUse = r.contractStatus === '사용';
+                let tag = r.manualAdded ? `<span style="font-size:10px; font-weight:700; background:#eff6ff; color:#1d4ed8; border:1px solid #93c5fd; border-radius:4px; padding:0 5px; margin-left:6px;">수동추가</span>` : '';
+                let act = canEdit ? `<button class="btn-action" style="color:#dc2626;" onclick="vsRemoveRow('${escHtml(r.key)}')">${r.manualAdded ? '추가 취소' : '제외'}</button>` : '';
                 tbody += `<tr>
-                    <td style="font-weight:700; color:#0f172a;">${escHtml(r.excelName)}</td>
+                    <td style="font-weight:700; color:#0f172a;">${escHtml(r.excelName)}${tag}</td>
                     <td style="font-weight:600; color:#334155;">${escHtml(r.viscoveryName)}</td>
                     <td class="text-center"><span class="vs-op-select ${isUse ? 'op-bill' : 'op-end'}">${escHtml(r.contractStatus)}</span></td>
                     <td class="text-center" style="font-weight:700; color:#2563eb;">${r.qty}</td>
                     <td class="text-right" style="font-weight:700; color:#d97706;">$${vsNum(r.usd)}</td>
                     <td>${escHtml(r.rep)}</td>
+                    <td class="text-center">${act}</td>
                 </tr>`;
             });
             document.getElementById('vsTableBody').innerHTML = tbody;
@@ -3792,8 +4029,10 @@
                 <td colspan="3" class="text-center">합계 (${vsNum(list.length)}개 매장)</td>
                 <td class="text-center">${vsNum(vsSum(list, r => r.qty))}</td>
                 <td class="text-right" style="color:#d97706;">$${vsNum(vsSum(list, r => r.usd))} <span style="font-size:11px; font-weight:500; color:#b45309;">(${vsNum(vsSum(list, r => r.usd) * fx)}원)</span></td>
-                <td></td></tr>` : '';
-            document.getElementById('vsTableTitle').innerText = `${vsMonthLabel(ym)} Viscovery 정산 내역 (${vsNum(list.length)}건)`;
+                <td></td><td></td></tr>` : '';
+            document.getElementById('vsTableTitle').innerText = `${vsMonthLabel(ym)} Viscovery 정산 내역 (${vsNum(list.length)}건)${cf ? ' 🔒 확정' : ''}`;
+            let addBtn = document.querySelector('#view-viscovery button[onclick="vsOpenAddModal()"]');
+            if (addBtn) addBtn.style.display = cf ? 'none' : '';
         }
 
         function vsRenderCharts(rows) {
@@ -3978,15 +4217,15 @@
             let fx = vsFxValue();
             let data = rows.map((r, i) => ({
                 'NO.': i + 1, '정산연월': vsCurrentMonth, '엑셀명': r.excelName, 'Viscovery명': r.viscoveryName, '계약상태': r.contractStatus,
-                '수량': r.qty, 'Viscovery 수수료(USD)': r.usd, '적용환율': fx, 'Viscovery 수수료(원)': r.krw, '영업대표': r.rep
+                '수량': r.qty, 'Viscovery 수수료(USD)': r.usd, '적용환율': fx, 'Viscovery 수수료(원)': r.krw, '영업대표': r.rep, '비고': r.manualAdded ? '수동 추가' : ''
             }));
             data.push({
                 'NO.': '', '정산연월': '', '엑셀명': '합계', 'Viscovery명': '', '계약상태': '',
                 '수량': vsSum(rows, r => r.qty), 'Viscovery 수수료(USD)': vsSum(rows, r => r.usd), '적용환율': fx,
-                'Viscovery 수수료(원)': vsSum(rows, r => r.krw), '영업대표': ''
+                'Viscovery 수수료(원)': vsSum(rows, r => r.krw), '영업대표': '', '비고': ''
             });
             let ws = XLSX.utils.json_to_sheet(data);
-            ws['!cols'] = [{ wch: 6 }, { wch: 10 }, { wch: 26 }, { wch: 22 }, { wch: 10 }, { wch: 8 }, { wch: 22 }, { wch: 10 }, { wch: 20 }, { wch: 12 }];
+            ws['!cols'] = [{ wch: 6 }, { wch: 10 }, { wch: 26 }, { wch: 22 }, { wch: 10 }, { wch: 8 }, { wch: 22 }, { wch: 10 }, { wch: 20 }, { wch: 12 }, { wch: 10 }];
             let wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, `Viscovery정산_${vsCurrentMonth}`);
             XLSX.writeFile(wb, `Viscovery정산_${vsCurrentMonth}.xlsx`);
@@ -4080,10 +4319,8 @@
                         else { row.status = '수량/금액 차이'; row.note = `시스템 ${r.qty}대 $${vsNum(r.usd)} ↔ 인보이스 ${it.qty}대 $${vsNum(it.usd)}`; }
                     } else if (it.foc) {
                         row.status = '일치'; row.note = 'F.O.C. (시스템에서도 청구 제외)'; row.diff = false;
-                    } else if (c.status !== '사용') {
-                        row.status = '시스템 집계 제외'; row.note = `고객 상태가 '${c.status}'입니다`;
                     } else {
-                        row.status = '시스템 집계 제외'; row.note = `${vsMonthLabel(ym)} 수금관리에 청구금액이 없습니다 (청구 미등록)`;
+                        row.status = '시스템 집계 제외'; row.note = vsExcludeReason(c, ym);
                     }
                 }
                 out.push(row);
@@ -4133,8 +4370,13 @@
                 let c = r.cust || (r.sys ? { excelName: r.sys.excelName, viscoveryName: r.sys.viscoveryName, status: r.sys.contractStatus } : null);
                 let sysTxt = c ? `${escHtml(c.excelName || c.name || '-')}<div style="font-size:10.5px; color:#64748b;">${escHtml(c.viscoveryName || '-')} · ${escHtml(c.status || '-')}</div>` : '<span style="color:#94a3b8;">-</span>';
                 let sysAmt = r.sys ? `${r.sys.qty}대 · $${vsNum(r.sys.usd)}` : '-';
+                let action = '';
+                if (vsCanEdit()) {
+                    if (r.status === '시스템 집계 제외' && r.cust) action = `<button class="btn-action" style="color:#2563eb;" onclick="vsReconInclude('${escHtml(vsSafeKey(r.cust.no))}', true)">정산에 추가</button>`;
+                    else if (r.status === '인보이스에 없음' && r.sys) action = `<button class="btn-action" style="color:#dc2626;" onclick="vsReconInclude('${escHtml(r.sys.key)}', false)">정산에서 제외</button>`;
+                }
                 return `<tr><td style="font-size:12px;">${invTxt}</td><td style="font-size:12px;">${sysTxt}</td><td class="text-center" style="font-size:12px;">${sysAmt}</td>
-                    <td class="text-center"><span style="font-size:11px; font-weight:700; color:${color(r.status)};">${escHtml(r.status)}</span></td><td style="font-size:11.5px; color:#475569;">${escHtml(r.note)}</td></tr>`;
+                    <td class="text-center"><span style="font-size:11px; font-weight:700; color:${color(r.status)};">${escHtml(r.status)}</span></td><td style="font-size:11.5px; color:#475569;">${escHtml(r.note)}</td><td class="text-center">${action}</td></tr>`;
             }).join('');
         }
 
@@ -4195,11 +4437,10 @@
             vsNormalize();
             let ym = vsCurrentMonth;
             let el = id => document.getElementById(id);
-            if (!el('ex_title').value) el('ex_title').value = 'Viscovery AI스캐너 이용료 정산내역서';
+            if (!el('ex_title').value) el('ex_title').value = 'Viscovery 정산내역서';
             el('ex_date').value = new Date().toISOString().slice(0, 10);
             el('ex_drafter').value = currentUser ? (currentUser.name || currentUser.id || '') : '';
             if (!el('ex_payee').value) el('ex_payee').value = 'Viscovery Inc.';
-            el('ex_invno').value = (vsSettle.invoices[ym] && vsSettle.invoices[ym].invNo) || '';
             el('ex_memo').value = '';
             openModal('vsExpenseModal');
             vsRefreshExpense();
@@ -4213,7 +4454,7 @@
             return { ym, fx, rows, usd, krw: Math.round(usd * fx), qty: vsSum(rows, r => r.qty) };
         }
 
-        function vsBuildExpenseHtml() {
+        function vsBuildExpenseHtml(forPrint) {
             let v = id => (document.getElementById(id).value || '').trim();
             let D = vsExpenseData();
             let ymLabel = vsMonthLabel(D.ym);
@@ -4221,43 +4462,160 @@
             let td = 'border:1px solid #475569; padding:6px 8px; font-size:11.5px;';
             let tr = 'text-align:right;';
             let fmtDate = s => s ? s.replace(/-/g, '.') : '';
-            let font = "font-family:'Malgun Gothic','Noto Sans KR','Apple SD Gothic Neo',sans-serif; color:#0f172a; box-sizing:border-box; width:794px; background:#fff;";
-            let title = v('ex_title') || 'Viscovery AI스캐너 이용료 정산내역서';
+            let font = "font-family:'Malgun Gothic','Noto Sans KR','Apple SD Gothic Neo',sans-serif; color:#0f172a; box-sizing:border-box;";
+            let outer = forPrint ? font : font + ' width:794px; background:#fff; padding:38px 40px;';
+            let title = v('ex_title') || 'Viscovery 정산내역서';
             let inv = vsSettle.invoices && vsSettle.invoices[D.ym];
             let invNote = '';
             if (inv) {
                 let diff = Math.round((D.usd - inv.total) * 100) / 100;
                 invNote = diff === 0
-                    ? `Viscovery 인보이스(${escHtml(inv.invNo || '-')}) 금액 USD ${vsNum(inv.total)}와 일치합니다.`
-                    : `Viscovery 인보이스(${escHtml(inv.invNo || '-')}) 금액 USD ${vsNum(inv.total)} 대비 USD ${vsNum(Math.abs(diff))} ${diff > 0 ? '초과' : '부족'}합니다.`;
+                    ? `Viscovery 인보이스 금액 USD ${vsNum(inv.total)}와 일치합니다.`
+                    : `Viscovery 인보이스 금액 USD ${vsNum(inv.total)} 대비 USD ${vsNum(Math.abs(diff))} ${diff > 0 ? '초과' : '부족'}합니다.`;
             }
             let box = (label, value, sub) => `<td style="border:1px solid #475569; padding:10px 8px; text-align:center; width:25%;">
                 <div style="font-size:11px; color:#64748b; font-weight:700;">${label}</div>
                 <div style="font-size:17px; font-weight:800; margin-top:3px;">${value}</div>
                 ${sub ? `<div style="font-size:10.5px; color:#64748b; margin-top:2px;">${sub}</div>` : ''}</td>`;
 
-            return `<div style="${font} padding:38px 40px;">
+            return `<div style="${outer}">
                 <div style="text-align:center; font-size:24px; font-weight:800; letter-spacing:2px;">${escHtml(title)}</div>
                 <div style="text-align:center; font-size:14px; color:#475569; margin-top:6px;">${ymLabel}분</div>
                 <table style="border-collapse:collapse; width:100%; margin-top:22px;">
                     <tr><td style="${th} width:15%;">정산 연월</td><td style="${td} width:35%;">${ymLabel}</td><td style="${th} width:15%;">작성일</td><td style="${td} width:35%;">${fmtDate(v('ex_date'))}</td></tr>
                     <tr><td style="${th}">공급사</td><td style="${td}">${escHtml(v('ex_payee'))}</td><td style="${th}">작성자</td><td style="${td}">${escHtml(v('ex_drafter'))}</td></tr>
-                    <tr><td style="${th}">인보이스 번호</td><td style="${td}">${escHtml(v('ex_invno')) || '-'}</td><td style="${th}">적용 환율</td><td style="${td}">${D.fx.toLocaleString('ko-KR')}원 / USD</td></tr>
+                    <tr><td style="${th}">적용 환율</td><td style="${td}" ${vsIsConfirmed(D.ym) ? '' : 'colspan="3"'}>${D.fx.toLocaleString('ko-KR')}원 / USD</td>${vsIsConfirmed(D.ym) ? `<td style="${th}">정산 확정</td><td style="${td}">${escHtml(vsSettle.confirmed[D.ym].at)} (${escHtml(vsSettle.confirmed[D.ym].by)})</td>` : ''}</tr>
                 </table>
                 <table style="border-collapse:collapse; width:100%; margin-top:14px;">
-                    <tr>${box('정산 매장수', vsNum(D.rows.length) + '곳')}${box('총 수량', vsNum(D.qty) + '대')}${box('합계 (USD)', '$' + vsNum(D.usd))}${box('원화 환산액', vsNum(D.krw) + '원', '환율 ' + D.fx.toLocaleString('ko-KR') + '원 적용')}</tr>
+                    <tr>${box('정산 매장수', vsNum(D.rows.length))}${box('총 수량', vsNum(D.qty))}${box('합계 (USD)', '$' + vsNum(D.usd))}${box('원화 환산액', vsNum(D.krw) + '원', '환율 ' + D.fx.toLocaleString('ko-KR') + '원 적용')}</tr>
                 </table>
                 <div style="margin-top:20px; font-size:13px; font-weight:800;">정산 내역</div>
                 <table style="border-collapse:collapse; width:100%; margin-top:6px;">
-                    <tr><th style="${th} width:32px;">NO</th><th style="${th}">엑셀명</th><th style="${th}">Viscovery명</th><th style="${th} width:62px; white-space:nowrap;">계약상태</th><th style="${th} width:42px; white-space:nowrap;">수량</th><th style="${th} width:104px;">Viscovery 수수료(USD)</th><th style="${th} width:66px; white-space:nowrap;">영업대표</th></tr>
+                    <thead><tr><th style="${th} width:32px;">NO</th><th style="${th}">엑셀명</th><th style="${th}">Viscovery명</th><th style="${th} width:62px; white-space:nowrap;">계약상태</th><th style="${th} width:42px; white-space:nowrap;">수량</th><th style="${th} width:104px;">Viscovery 수수료(USD)</th><th style="${th} width:66px; white-space:nowrap;">영업대표</th></tr></thead>
+                    <tbody>
                     ${D.rows.map((r, i) => `<tr style="page-break-inside:avoid;"><td style="${td} text-align:center;">${i + 1}</td><td style="${td}">${escHtml(r.excelName)}</td><td style="${td}">${escHtml(r.viscoveryName)}</td><td style="${td} text-align:center; white-space:nowrap;">${escHtml(r.contractStatus)}</td><td style="${td} text-align:center;">${r.qty}</td><td style="${td} ${tr}">$${vsNum(r.usd)}</td><td style="${td} text-align:center; white-space:nowrap;">${escHtml(r.rep)}</td></tr>`).join('')}
                     <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="4">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td} ${tr}">$${vsNum(D.usd)}</td><td style="${td}"></td></tr>
+                    </tbody>
                 </table>
                 <div style="margin-top:14px; font-size:11px; color:#475569; line-height:1.7; page-break-inside:avoid;">
-                    ※ 본 내역은 AI스캐너 고객관리와 수금관리 데이터를 기준으로, ${ymLabel} 청구된 매장만 집계한 Viscovery 이용료 정산 내역입니다.<br>
+                    ※ 본 내역은 AI스캐너 고객관리와 수금관리 데이터를 기준으로, ${ymLabel} 청구된 매장을 집계한 Viscovery 이용료 정산 내역입니다.<br>
                     ${invNote ? '※ ' + invNote + '<br>' : ''}${v('ex_memo') ? '※ ' + escHtml(v('ex_memo')) : ''}
                 </div>
             </div>`;
+        }
+
+        /* 확정 이력 */
+        function vsOpenHistory() { vsNormalize(); openModal('vsHistoryModal'); vsRenderHistory(); }
+        function vsRenderHistory() {
+            vsNormalize();
+            let only = document.getElementById('vsHistMonthOnly').checked;
+            let list = vsSettle.confirmLog.map((l, i) => Object.assign({ _i: i }, l)).filter(l => !only || l.ym === vsCurrentMonth).reverse();
+            document.getElementById('vsHistBody').innerHTML = list.length ? list.map(l => {
+                let isC = l.action === '확정';
+                let tag = `<span style="font-size:11px; font-weight:700; padding:1px 8px; border-radius:4px; ${isC ? 'background:#ecfdf5; color:#047857; border:1px solid #6ee7b7;' : 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5;'}">${escHtml(l.action)}</span>`;
+                let det = isC ? `${l.stores !== undefined ? vsNum(l.stores) + '개 매장 · ' : ''}${vsNum(l.qty)}대 · $${vsNum(l.usd)}` : '-';
+                return `<tr><td>${escHtml(l.at)}</td><td class="text-center">${vsMonthLabel(l.ym)}</td><td class="text-center">${tag}</td><td class="text-center">${escHtml(l.by)}</td><td>${det}</td></tr>`;
+            }).join('') : `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:24px;">확정 이력이 없습니다.</td></tr>`;
+        }
+
+        /* PDF 다운로드 - 외부 라이브러리 없이: HTML → SVG(foreignObject) → 캔버스 → JPEG → 간단한 PDF 파일 조립
+           (A4 여러 장, 장마다 표 머리 반복, 행은 중간에서 잘리지 않음. 글자는 이미지로 들어갑니다) */
+        function vsHtmlToCanvas(node, w, h, scale) {
+            return new Promise((resolve, reject) => {
+                let xhtml = new XMLSerializer().serializeToString(node);
+                let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><foreignObject x="0" y="0" width="${w}" height="${h}">${xhtml}</foreignObject></svg>`;
+                let img = new Image();
+                img.onload = () => {
+                    let c = document.createElement('canvas');
+                    c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+                    let ctx = c.getContext('2d');
+                    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+                    ctx.drawImage(img, 0, 0, c.width, c.height);
+                    resolve(c);
+                };
+                img.onerror = () => reject(new Error('화면을 이미지로 변환하지 못했습니다'));
+                img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+            });
+        }
+        function vsBuildPdfFile(pages) {   // pages: [{jpeg:Uint8Array, wpx, hpx, outW(mm), outH(mm)}]
+            const enc = new TextEncoder(), chunks = []; let len = 0; const offs = [];
+            const put = d => { let u = typeof d === 'string' ? enc.encode(d) : d; chunks.push(u); len += u.length; };
+            const obj = (n, body) => { offs[n] = len; put(`${n} 0 obj\n`); put(body); put('\nendobj\n'); };
+            const mm = v => v * 72 / 25.4, PW = 595.28, PH = 841.89;
+            put('%PDF-1.4\n');
+            let N = pages.length, kids = [];
+            for (let i = 0; i < N; i++) kids.push(`${3 + i * 3} 0 R`);
+            obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+            obj(2, `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${N} >>`);
+            pages.forEach((pg, i) => {
+                let pn = 3 + i * 3, cn = pn + 1, im = pn + 2;
+                let w = mm(pg.outW), h = mm(pg.outH), x = mm(10), y = PH - mm(12) - h;
+                obj(pn, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${im} 0 R >> >> /Contents ${cn} 0 R >>`);
+                let cs = `q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im0 Do Q`;
+                obj(cn, `<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`);
+                offs[im] = len; put(`${im} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pg.wpx} /Height ${pg.hpx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.jpeg.length} >>\nstream\n`);
+                put(pg.jpeg); put('\nendstream\nendobj\n');
+            });
+            let xref = len, total = 3 + N * 3;
+            put(`xref\n0 ${total}\n0000000000 65535 f \n`);
+            for (let n = 1; n < total; n++) put(String(offs[n]).padStart(10, '0') + ' 00000 n \n');
+            put(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+            return new Blob(chunks, { type: 'application/pdf' });
+        }
+        async function vsDownloadPdf() {
+            let btn = document.getElementById('vsPdfBtn');
+            let old = btn.innerText; btn.disabled = true; btn.innerText = 'PDF 생성 중...';
+            let wrap = null;
+            try {
+                const W = 718;                                   // 190mm @96dpi
+                wrap = document.createElement('div');
+                wrap.style.cssText = `position:fixed; left:0; top:0; width:${W}px; background:#fff; z-index:-1; pointer-events:none;`;
+                wrap.innerHTML = vsBuildExpenseHtml(true);
+                document.body.appendChild(wrap);
+                if (document.fonts && document.fonts.ready) await document.fonts.ready;
+                await new Promise(r => setTimeout(r, 100));
+                let base = wrap.getBoundingClientRect();
+                let thead = wrap.querySelector('thead').getBoundingClientRect();
+                let hhTop = thead.top - base.top, hh = thead.height;
+                let ends = Array.from(wrap.querySelectorAll('tbody tr, table + div')).map(e => e.getBoundingClientRect().bottom - base.top);
+                let total = Math.ceil(wrap.scrollHeight);
+                let SC = Math.min(2, 15000 / total);
+                let canvas = await vsHtmlToCanvas(wrap, W, total, SC);
+                const PHpx = Math.floor(273 / 190 * W);          // 한 장의 내용 높이(px)
+                let spans = [], start = 0;
+                while (start < total - 1) {
+                    let repeat = spans.length > 0, avail = PHpx - (repeat ? hh : 0), end;
+                    if (total - start <= avail) end = total;
+                    else {
+                        let cand = ends.filter(e => e > start + 1 && e <= start + avail);
+                        end = cand.length ? Math.max.apply(null, cand) : start + avail;
+                    }
+                    spans.push({ start: start, end: end, repeat: repeat });
+                    start = end;
+                }
+                let pages = spans.map(pg => {
+                    let bodyH = pg.end - pg.start, extra = pg.repeat ? hh : 0;
+                    let c = document.createElement('canvas');
+                    c.width = canvas.width; c.height = Math.ceil((bodyH + extra) * SC);
+                    let ctx = c.getContext('2d');
+                    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+                    if (pg.repeat) ctx.drawImage(canvas, 0, hhTop * SC, c.width, hh * SC, 0, 0, c.width, hh * SC);
+                    ctx.drawImage(canvas, 0, pg.start * SC, c.width, bodyH * SC, 0, extra * SC, c.width, bodyH * SC);
+                    let b64 = c.toDataURL('image/jpeg', 0.92).split(',')[1], bin = atob(b64), u = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+                    return { jpeg: u, wpx: c.width, hpx: c.height, outW: 190, outH: (bodyH + extra) * 190 / W };
+                });
+                let blob = vsBuildPdfFile(pages);
+                let a = document.createElement('a');
+                a.href = URL.createObjectURL(blob); a.download = `Viscovery_statement_${vsCurrentMonth}.pdf`;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+            } catch (e) {
+                alert('PDF를 만들지 못했습니다: ' + e.message + '\n[인쇄]를 눌러 \'PDF로 저장\'을 이용해 주세요.');
+            } finally {
+                if (wrap) wrap.remove();
+                btn.disabled = false; btn.innerText = old;
+            }
         }
 
         function vsRefreshExpense() {
@@ -4265,39 +4623,35 @@
             if (el) el.innerHTML = vsBuildExpenseHtml();
         }
 
-        function vsDownloadExpensePdf() {
-            let html = vsBuildExpenseHtml();
-            let fileName = `Viscovery_정산내역서_${vsCurrentMonth}.pdf`;
-            if (typeof html2pdf === 'undefined') {
-                alert('PDF 모듈을 불러오지 못해 인쇄 창으로 대체합니다. 인쇄 창에서 "PDF로 저장"을 선택해 주세요.');
-                vsPrintExpense();
-                return;
-            }
-            let holder = document.createElement('div');
-            holder.style.cssText = 'position:fixed; left:-10000px; top:0; width:794px; background:#fff;';
-            holder.innerHTML = html;
-            document.body.appendChild(holder);
-            html2pdf().set({
-                margin: 0, filename: fileName,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' }
-            }).from(holder).save().then(() => { holder.remove(); }).catch(err => {
-                holder.remove();
-                console.error(err);
-                alert('PDF 생성 중 오류가 발생했습니다. [인쇄 / PDF로 저장]을 이용해 주세요.');
-            });
-        }
-
+        /* 인쇄 / PDF로 저장 (팝업 없이 숨김 프레임으로 인쇄 - 인쇄 창에서 'PDF로 저장' 선택) */
         function vsPrintExpense() {
-            let html = vsBuildExpenseHtml();
-            let w = window.open('', '_blank');
-            if (!w) { alert('팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 시도해 주세요.'); return; }
-            w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Viscovery_정산내역서_${vsCurrentMonth}</title><style>@page{size:A4;margin:0;} body{margin:0;} </style></head><body>${html}</body></html>`);
-            w.document.close();
-            w.focus();
-            setTimeout(() => { w.print(); }, 400);
+            let html = vsBuildExpenseHtml(true);
+            let title = `Viscovery_정산내역서_${vsCurrentMonth}`;
+            let old = document.getElementById('vsPrintFrame');
+            if (old) old.remove();
+            let fr = document.createElement('iframe');
+            fr.id = 'vsPrintFrame';
+            fr.setAttribute('aria-hidden', 'true');
+            fr.style.cssText = 'position:fixed; left:-10000px; top:0; width:794px; height:1123px; border:0;';
+            document.body.appendChild(fr);
+            let d = fr.contentWindow.document;
+            d.open();
+            d.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>
+                @page { size: A4; margin: 12mm 10mm; }
+                html, body { margin: 0; padding: 0; background: #fff; }
+                * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                table { border-collapse: collapse; }
+                thead { display: table-header-group; }
+                tr { page-break-inside: avoid; break-inside: avoid; }
+            </style></head><body>${html}</body></html>`);
+            d.close();
+            let prevTitle = document.title;
+            document.title = title;   // PDF로 저장할 때 기본 파일명으로 사용됩니다
+            setTimeout(() => {
+                try { fr.contentWindow.focus(); fr.contentWindow.print(); }
+                catch (e) { alert('인쇄 창을 열지 못했습니다: ' + e.message); }
+                document.title = prevTitle;
+            }, 350);
         }
 
         function switchCategory(category, el, titleText) {
