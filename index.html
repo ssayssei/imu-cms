@@ -1500,15 +1500,15 @@
                                 <tr>
                                     <th class="text-center" style="width:40px;"><input type="checkbox" id="selectAllAgency" onclick="toggleSelectAllAgency(this)" /></th>
                                     <th class="text-center" style="width:45px;">NO.</th>
-                                    <th>사업자번호</th>
-                                    <th>대리점명</th>
-                                    <th>지역</th>
-                                    <th>주소지</th>
-                                    <th class="text-center">연결 매장수</th>
-                                    <th>세금계산서 담당자명</th>
-                                    <th>담당자 전화번호</th>
-                                    <th>세금계산서 수신 이메일</th>
-                                    <th>비고</th>
+                                    <th class="sortable" onclick="sortAgency('bizNo')">사업자번호 <span class="sort-indicator" id="agsort_bizNo"></span></th>
+                                    <th class="sortable" onclick="sortAgency('agencyName')">대리점명 <span class="sort-indicator" id="agsort_agencyName"></span></th>
+                                    <th class="sortable" onclick="sortAgency('region')">지역 <span class="sort-indicator" id="agsort_region"></span></th>
+                                    <th class="sortable" onclick="sortAgency('address')">주소지 <span class="sort-indicator" id="agsort_address"></span></th>
+                                    <th class="text-center sortable" onclick="sortAgency('storeCount')">연결 매장수 <span class="sort-indicator" id="agsort_storeCount"></span></th>
+                                    <th class="sortable" onclick="sortAgency('taxName')">세금계산서 담당자명 <span class="sort-indicator" id="agsort_taxName"></span></th>
+                                    <th class="sortable" onclick="sortAgency('taxPhone')">담당자 전화번호 <span class="sort-indicator" id="agsort_taxPhone"></span></th>
+                                    <th class="sortable" onclick="sortAgency('taxEmail')">세금계산서 수신 이메일 <span class="sort-indicator" id="agsort_taxEmail"></span></th>
+                                    <th class="sortable" onclick="sortAgency('memo')">비고 <span class="sort-indicator" id="agsort_memo"></span></th>
                                     <th class="text-center" style="width:130px;">관리</th>
                                 </tr>
                             </thead>
@@ -2050,6 +2050,8 @@
         let currentModalYear = 2026;
         let currentSortKey = '';
         let currentSortAsc = true;
+        let customerOrigOrder = [];
+        let agencySort = { key: '', asc: true };
         let selectedCustomerStatusTab = 'ALL';
         let selectedAiCustomerStatusTab = 'ALL';
         let selectedPaymentStatusTab = 'ALL';
@@ -5833,22 +5835,28 @@
         }
 
         function sortTable(key, type) {
+            let sortOff = false;
             if (currentSortKey === key) {
-                currentSortAsc = !currentSortAsc;
+                if (currentSortAsc) { currentSortAsc = false; }          // 2번째 클릭: 역순
+                else { sortOff = true; currentSortKey = ''; currentSortAsc = true; }   // 3번째 클릭: 해제
             } else {
+                if (!currentSortKey) customerOrigOrder = customerDataList.map(c => c.idx);   // 정렬 전 원래 순서 보관
                 currentSortKey = key;
-                currentSortAsc = true;
+                currentSortAsc = true;                                   // 1번째 클릭: 가나다순
             }
 
             document.querySelectorAll('.sort-indicator').forEach(el => el.innerText = '');
 
             let prefix = type === 'customer' ? 'csort_' : (type === 'aiScannerCustomer' ? 'aisort_' : 'psort_');
             let indicator = document.getElementById(prefix + key);
-            if (indicator) {
+            if (indicator && !sortOff) {
                 indicator.innerText = currentSortAsc ? ' ▲' : ' ▼';
             }
 
-            customerDataList.sort((a, b) => {
+            if (sortOff) {
+                let pos = {}; customerOrigOrder.forEach((id, i) => { pos[id] = i; });
+                customerDataList.sort((a, b) => (pos[a.idx] === undefined ? -1 : pos[a.idx]) - (pos[b.idx] === undefined ? -1 : pos[b.idx]));
+            } else customerDataList.sort((a, b) => {
                 let valA = a[key] !== undefined ? a[key] : '';
                 let valB = b[key] !== undefined ? b[key] : '';
 
@@ -5867,7 +5875,7 @@
 
                 valA = String(valA);
                 valB = String(valB);
-                return currentSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                return currentSortAsc ? valA.localeCompare(valB, 'ko', {numeric:true}) : valB.localeCompare(valA, 'ko', {numeric:true});
             });
 
             if (type === 'customer') {
@@ -6255,7 +6263,41 @@
             });
         }
 
+        /* 사업자번호/대리점명 칸이 서로 바뀌어 저장된 데이터 자동 보정 (번호 칸에 글자, 이름 칸에 10자리 숫자) */
+        function agencyFixSwapped() {
+            let isNum = v => cleanBizNo(v).length >= 10 && !/[가-힣a-zA-Z]/.test(String(v || ''));
+            let isTxt = v => /[가-힣a-zA-Z]/.test(String(v || ''));
+            let fixed = 0;
+            Object.keys(taxContactMap).forEach(k => {
+                let a = taxContactMap[k];
+                if (a && isTxt(a.bizNo) && isNum(a.agencyName)) {
+                    let nm = a.bizNo; a.bizNo = fmtBizNo(a.agencyName); a.agencyName = nm;
+                    let nk = cleanBizNo(a.bizNo); a.cleanKey = nk;
+                    delete taxContactMap[k];
+                    if (!taxContactMap[nk]) taxContactMap[nk] = a;
+                    if (agencyDeletedKeys[k]) { delete agencyDeletedKeys[k]; }
+                    fixed++;
+                }
+            });
+            customerDataList.forEach(c => {
+                if (isTxt(c.agencyBizNo) && isNum(c.agencyName)) {
+                    let nm = c.agencyBizNo; c.agencyBizNo = fmtBizNo(c.agencyName); c.agencyName = nm; fixed++;
+                }
+            });
+            if (fixed) { try { saveLocalStorage(); syncToFirebase(); } catch (e) {} }
+            return fixed;
+        }
+
+        function sortAgency(key) {
+            if (agencySort.key === key) {
+                if (agencySort.asc) agencySort.asc = false;              // 2번째: 역순
+                else agencySort = { key: '', asc: true };                // 3번째: 해제
+            } else agencySort = { key: key, asc: true };                 // 1번째: 가나다순
+            renderAgencyContactTable();
+        }
+
         function renderAgencyContactTable() {
+            agencyFixSwapped();
             let tbody = '';
             let query = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
 
@@ -6305,6 +6347,24 @@
                 cntSel.value = (cntPrev !== 'ALL' && cntBuckets[cntPrev] !== undefined) ? cntPrev : 'ALL';
                 if (cntSel.value !== 'ALL') list = list.filter(item => String(storeCntOf(item)) === cntSel.value);
             }
+
+            if (agencySort.key) {
+                let kk = agencySort.key, dir = agencySort.asc ? 1 : -1;
+                let val = it => {
+                    if (kk === 'storeCount') return storeCntOf(it);
+                    if (kk === 'region') return extractRegionFromAddress(it.address) || '';
+                    return String(it[kk] || '');
+                };
+                list = list.map((it, i) => ({ it, i })).sort((x, y) => {
+                    let a = val(x.it), b = val(y.it);
+                    let empA = (a === '' || a === '-'), empB = (b === '' || b === '-');
+                    if (empA !== empB) return empA ? 1 : -1;            // 빈 값은 항상 맨 아래
+                    let r = (typeof a === 'number') ? a - b : String(a).localeCompare(String(b), 'ko', { numeric: true });
+                    return r ? r * dir : x.i - y.i;
+                }).map(o => o.it);
+            }
+            document.querySelectorAll('[id^="agsort_"]').forEach(el => el.innerText = '');
+            if (agencySort.key) { let ind = document.getElementById('agsort_' + agencySort.key); if (ind) ind.innerText = agencySort.asc ? ' ▲' : ' ▼'; }
 
             if (list.length === 0) {
                 tbody = `<tr><td colspan="12" style="text-align:center; color:#94a3b8; padding:30px;">등록된 대리점이 없습니다. [양식 다운로드] 후 대량업로드하거나 [+ 대리점 등록]을 진행해 주세요.</td></tr>`;
