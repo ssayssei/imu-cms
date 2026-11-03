@@ -340,6 +340,7 @@
         .vs-kpi .s { font-size:11px; color:#94a3b8; margin-top:3px; }
         .vs-chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
         @media (max-width: 1100px) { .vs-chart-grid { grid-template-columns:1fr; } }
+        body.pay-closed #view-payment .card-actions .editable-only { opacity:.45; }
         .cs-b { display:inline-block; padding:1px 7px; border-radius:4px; font-size:11px; font-weight:600; white-space:nowrap; }
         .cs-paid { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
         .cs-retro { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; }
@@ -1282,6 +1283,12 @@
                             <select id="paySelectMonth" class="filter-select" onchange="filterPaymentTable()">
                                 <option value="2026-10">2026년 10월</option>
                             </select>
+                        </div>
+                        <div class="filter-group" style="flex-wrap:nowrap; white-space:nowrap; gap:6px;">
+                            <span id="payCloseBadge" style="display:none;"></span>
+                            <button type="button" class="btn btn-primary" id="payCloseBtn" style="font-size:12px; padding:5px 10px; white-space:nowrap; display:none;" onclick="payCloseMonth()">🔒 이 달 마감</button>
+                            <button type="button" class="btn btn-outline" id="payOpenBtn" style="font-size:12px; padding:5px 10px; white-space:nowrap; display:none; color:#dc2626; border-color:#fca5a5;" onclick="payOpenMonth()">🔓 마감 해제</button>
+                            <button type="button" class="btn btn-outline" style="font-size:12px; padding:5px 10px; white-space:nowrap;" onclick="payOpenHistory()">🕘 마감 이력</button>
                         </div>
                         <div class="filter-group">
                             <label>납품처명:</label>
@@ -2431,7 +2438,7 @@
                         return;
                     }
 
-                    let addCount = 0;
+                    let addCount = 0, skipClosed = 0, skipMonths = [];
                     let batchRecords = [];
                     let uploadTimeStr = new Date().toLocaleString('ko-KR');
 
@@ -2447,7 +2454,13 @@
                         let settleDate = String(row['정산일'] || row['정산일자'] || '').trim().replace(/[\/\.]/g, '-');
 
                         if (!paymentDataMap[memberNo]) paymentDataMap[memberNo] = {};
-                        
+                        {   // 마감된 달(정산일자 기준)은 건너뜀
+                            let oldE = paymentDataMap[memberNo][normalizedMonth];
+                            let newPM = payMonthOf(normalizedMonth, { paidDate: settleDate });
+                            let oldPM = (oldE && oldE.paid > 0) ? payMonthOf(normalizedMonth, oldE) : '';
+                            let bad = [newPM, oldPM].filter(m => m && payIsClosed(m));
+                            if (bad.length) { skipClosed++; skipMonths = skipMonths.concat(bad); return; }
+                        }
                         let bInfo = getBillingInfoForMonth(memberNo, normalizedMonth);
                         let billAmt = (bInfo.amount !== null) ? bInfo.amount : (paymentDataMap[memberNo][normalizedMonth]?.amount || 0);
 
@@ -2477,7 +2490,7 @@
                     renderPaymentTable();
                     renderDashboardCharts();
 
-                    alert(`[수금 엑셀 업로드 완료]\n총 ${addCount}건의 수납금액 및 정산일자가 안전하게 반영되었습니다.`);
+                    alert(`[수금 엑셀 업로드 완료]\n총 ${addCount}건의 수납금액 및 정산일자가 안전하게 반영되었습니다.` + (skipClosed ? `\n\n※ 마감된 달(${Array.from(new Set(skipMonths)).sort().map(m => m.replace('-', '.')).join(', ')})에 해당하는 ${skipClosed}건은 반영하지 않았습니다.` : ''));
                 } catch (err) {
                     console.error("수금 엑셀 파싱 에러:", err);
                     alert("수금 엑셀 파싱 오류: " + err.message);
@@ -2506,7 +2519,7 @@
                     }
 
                     let addCount = 0;
-                    let updateCount = 0;
+                    let updateCount = 0, skipClosedB = 0, skipMonthsB = [];
 
                     json.forEach((row, rIdx) => {
                         let memberNo = normalizeMemberNo(row['회원번호'] || row['회원 번호'] || '');
@@ -2520,6 +2533,7 @@
 
                         let normalizedMonth = normalizeYM(rawMonth);
                         if (!normalizedMonth) normalizedMonth = '2026-10';
+                        if (payIsClosed(normalizedMonth)) { skipClosedB++; skipMonthsB.push(normalizedMonth); return; }   // 마감된 달 청구는 변경 불가
 
                         let existingIndex = billingDataList.findIndex(b => 
                             normalizeMemberNo(b.no) === memberNo && 
@@ -2565,7 +2579,7 @@
                     renderPaymentTable();
                     renderDashboardCharts();
 
-                    alert(`[청구 엑셀 업로드 완료]\n총 ${addCount + updateCount}건 반영 (신규: ${addCount}건 / 갱신: ${updateCount}건)`);
+                    alert(`[청구 엑셀 업로드 완료]\n총 ${addCount + updateCount}건 반영 (신규: ${addCount}건 / 갱신: ${updateCount}건)` + (skipClosedB ? `\n\n※ 수금이 마감된 달(${Array.from(new Set(skipMonthsB)).sort().map(m => m.replace('-', '.')).join(', ')})의 ${skipClosedB}건은 반영하지 않았습니다.` : ''));
                 } catch (err) {
                     console.error("청구 엑셀 파싱 에러:", err);
                     alert("청구 엑셀 파싱 오류: " + err.message);
@@ -3336,6 +3350,9 @@
             let targetBatch = uploadBatchList[batchIdx];
             if (!targetBatch) return;
 
+            let touch = [];
+            targetBatch.records.forEach(r => { let d = paymentDataMap[r.no] && paymentDataMap[r.no][r.monthKey]; if (d && d.paid > 0) touch.push(payMonthOf(r.monthKey, d)); });
+            if (payClosedAlert(touch)) return;
             if (!confirm(`[${targetBatch.time}] 업로드된 ${targetBatch.count}건의 수금 데이터를 일괄 삭제하시겠습니까?`)) return;
 
             targetBatch.records.forEach(r => {
@@ -3360,6 +3377,10 @@
                 return;
             }
 
+            if (Object.keys((vsSettle && vsSettle.payClosed) || {}).length) {
+                alert('마감된 달이 있어 수금 전체 초기화를 할 수 없습니다.\n먼저 관리자가 마감을 모두 해제해 주세요.');
+                return;
+            }
             let confirmInput = prompt(
                 "⚠️ 경고: 등록된 전체 가맹점의 모든 월별 수납 내역(수납금액 및 정산일자)이 즉시 영구 삭제됩니다.\n\n정말 초기화하시려면 아래에 '수금초기화'를 입력해 주세요."
             );
@@ -3514,6 +3535,89 @@
             alert("Viscovery 수수료 요율 설정이 성공적으로 저장되었습니다.");
         }
 
+        /* =====================================================================
+           [추가] 수금: 정산일자가 속한 월에 잡습니다 (청구월이 아님) + 월 마감
+           - 수납(입금)은 '정산일자'의 월에 표시 (정산일자가 없으면 청구월)
+           - 한 달에 여러 건(예: 8·9·10월분을 10월에 한꺼번에 입금)이면 날짜 순(1일 → 말일)으로 나열
+           - 미납 = 해당 월 청구분 중 그 월 말까지 입금되지 않은 금액
+           - 마감: vsSettle.payClosed[연월] = {at, by}  (관리자만 마감/해제, 마감된 월은 수금 등록·수정·삭제·업로드 불가)
+        ===================================================================== */
+        function payNormDate(s) {
+            let p = String(s || '').trim().replace(/[\/\.]/g, '-').split('-');
+            if (p.length < 3) return String(s || '');
+            return p[0] + '-' + p[1].padStart(2, '0') + '-' + p[2].trim().slice(0, 2).padStart(2, '0');
+        }
+        function payMonthOf(billMonth, d) {
+            let m = normalizeYM((d && d.paidDate) || '');
+            return /^\d{4}-\d{2}$/.test(m) ? m : billMonth;
+        }
+        function payReceipts(no, M) {
+            let pMap = paymentDataMap[normalizeMemberNo(no)] || paymentDataMap[no] || {}, out = [];
+            Object.keys(pMap).forEach(k => {
+                if (!/^\d{4}-\d{2}$/.test(k)) return;
+                let d = pMap[k];
+                if (!d || !(d.paid > 0)) return;
+                if (payMonthOf(k, d) === M) out.push({ billMonth: k, paid: d.paid, date: d.paidDate || '' });
+            });
+            out.sort((a, b) => payNormDate(a.date).localeCompare(payNormDate(b.date)) || a.billMonth.localeCompare(b.billMonth));
+            return out;
+        }
+        function payCashSum(no, M) { return payReceipts(no, M).reduce((a, r) => a + r.paid, 0); }
+        function payUnpaidFor(no, M, bill) {
+            let d = (paymentDataMap[normalizeMemberNo(no)] || paymentDataMap[no] || {})[M];
+            let paid = (d && d.paid > 0 && payMonthOf(M, d) <= M) ? d.paid : 0;
+            return Math.max(0, (bill || 0) - paid);
+        }
+        function payReceiptsHtml(no, M, withDelete) {
+            let rs = payReceipts(no, M);
+            if (!rs.length) return '';
+            return rs.map(r => `<div style="white-space:nowrap; display:flex; justify-content:flex-end; align-items:center; gap:6px;"><span class="date-amt-box"><span class="dt-part">${payNormDate(r.date)}</span><span class="amt-part">${r.paid.toLocaleString()}</span></span>${r.billMonth !== M ? ` <span style="font-size:10px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:4px; padding:0 5px;">${parseInt(r.billMonth.split('-')[1])}월분</span>` : ''}${withDelete ? `<button type="button" class="btn-mini-x editable-only" title="수납내역 삭제" onclick="deleteSinglePaymentRecord('${normalizeMemberNo(no)}', '${r.billMonth}')">✕</button>` : ''}</div>`).join('');
+        }
+        function payIsClosed(ym) { return !!(vsSettle && vsSettle.payClosed && vsSettle.payClosed[ym]); }
+        function payClosedAlert(months) {
+            let list = Array.from(new Set(months.filter(m => payIsClosed(m)))).sort();
+            if (!list.length) return false;
+            alert(`${list.map(m => m.replace('-', '.')).join(', ')} 수금이 마감되어 등록·수정·삭제할 수 없습니다.\n관리자가 [마감 해제]를 한 뒤 수정해 주세요.`);
+            return true;
+        }
+        function payRenderLockUi() {
+            vsNormalize();
+            let sel = document.getElementById('paySelectMonth'), badge = document.getElementById('payCloseBadge');
+            if (!sel || !badge) return;
+            let ym = sel.value, closed = payIsClosed(ym), admin = vsIsAdmin();
+            badge.style.display = '';
+            badge.innerHTML = closed ? `<span style="font-size:11px; font-weight:700; color:#047857; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:4px; padding:2px 8px;" title="${escHtml(vsSettle.payClosed[ym].at + ' · ' + vsSettle.payClosed[ym].by)}">🔒 마감됨</span>` : `<span style="font-size:11px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fcd34d; border-radius:4px; padding:2px 8px;">진행중</span>`;
+            document.getElementById('payCloseBtn').style.display = (!closed && admin) ? '' : 'none';
+            document.getElementById('payOpenBtn').style.display = (closed && admin) ? '' : 'none';
+            document.body.classList.toggle('pay-closed', closed);
+        }
+        function payCloseMonth() {
+            vsNormalize();
+            let ym = document.getElementById('paySelectMonth').value;
+            if (!vsIsAdmin()) { alert('관리자만 마감할 수 있습니다.'); return; }
+            if (payIsClosed(ym)) return;
+            let cnt = 0, sum = 0;
+            customerDataList.forEach(c => { let t = payCashSum(c.no, ym); if (t > 0) { cnt++; sum += t; } });
+            if (!confirm(`${ym.replace('-', '.')} 수금을 마감할까요?\n\n· 입금 ${cnt}건 / ${sum.toLocaleString()}원\n· 마감 후에는 이 달의 수납(정산일자 기준) 등록·수정·삭제·엑셀 업로드와 이 달 청구 변경이 막힙니다.\n· 문제가 생기면 관리자가 언제든 마감을 해제할 수 있습니다.`)) return;
+            let by = currentUser.name || currentUser.id;
+            vsSettle.payClosed[ym] = { at: vsNowStr(), by: by };
+            vsSettle.confirmLog.push({ ym: ym, kind: '수금마감', action: '마감', by: by, at: vsSettle.payClosed[ym].at, det: `입금 ${cnt}건 · ${sum.toLocaleString()}원` });
+            vsSave();
+            renderPaymentTable();
+        }
+        function payOpenMonth() {
+            vsNormalize();
+            let ym = document.getElementById('paySelectMonth').value;
+            if (!vsIsAdmin()) { alert('관리자만 마감을 해제할 수 있습니다.'); return; }
+            if (!payIsClosed(ym)) return;
+            if (!confirm(`${ym.replace('-', '.')} 수금 마감을 해제할까요?\n해제하면 다시 등록·수정·삭제할 수 있습니다.`)) return;
+            delete vsSettle.payClosed[ym];
+            vsSettle.confirmLog.push({ ym: ym, kind: '수금마감', action: '마감 해제', by: currentUser.name || currentUser.id, at: vsNowStr() });
+            vsSave();
+            renderPaymentTable();
+        }
+        function payOpenHistory() { vsNormalize(); vsHistKind = '수금마감'; vsHistYm = (document.getElementById('paySelectMonth') || {}).value || ''; openModal('vsHistoryModal'); vsRenderHistory(); }
+
         function getBillingInfoForMonth(no, yearMonthStr) {
             let targetYM = normalizeYM(yearMonthStr);
             let targetNo = normalizeMemberNo(no);
@@ -3531,17 +3635,10 @@
             let startM = (year === 2026) ? 10 : 1;
             for (let m = startM; m <= 12; m++) {
                 let monthKey = `${year}-${String(m).padStart(2, '0')}`;
-                let mData = pMap[monthKey];
                 let bInfo = getBillingInfoForMonth(key, monthKey);
                 let pAmt = bInfo.amount !== null ? bInfo.amount : 0;
-                
-                if (mData) {
-                    summary.paid += mData.paid || 0;
-                    let unpaidVal = pAmt - (mData.paid || 0);
-                    summary.unpaid += Math.max(0, unpaidVal);
-                } else {
-                    summary.unpaid += pAmt;
-                }
+                summary.paid += payCashSum(key, monthKey);
+                summary.unpaid += payUnpaidFor(key, monthKey, pAmt);
             }
             return summary;
         }
@@ -3562,9 +3659,9 @@
             let monthSelect = document.getElementById('p_new_month');
             if (monthSelect) {
                 let mOptions = '';
-                for (let m = startM; m <= 12; m++) {
+                for (let m = 1; m <= 12; m++) {
                     let mStr = String(m).padStart(2, '0');
-                    mOptions += `<option value="${mStr}">${m}월</option>`;
+                    mOptions += `<option value="${mStr}">${m}월분</option>`;
                 }
                 monthSelect.innerHTML = mOptions;
             }
@@ -3575,13 +3672,13 @@
             for (let m = startM; m <= 12; m++) {
                 let mStr = String(m).padStart(2, '0');
                 let monthKey = `${currentModalYear}-${mStr}`;
-                let mData = pMap[monthKey] || { paid: 0, paidDate: '' };
+                let cashM = payCashSum(key, monthKey);
                 let bInfo = getBillingInfoForMonth(key, monthKey);
                 let bAmt = bInfo.amount || 0;
-                let unpaidVal = Math.max(0, bAmt - (mData.paid || 0));
+                let unpaidVal = payUnpaidFor(key, monthKey, bAmt);
 
                 sums.bill += bAmt;
-                sums.paid += (mData.paid || 0);
+                sums.paid += cashM;
                 sums.unpaid += unpaidVal;
 
                 let billDisplay = '';
@@ -3591,12 +3688,7 @@
                     billDisplay += `<button type="button" class="btn-mini-x editable-only" title="청구내역 삭제" onclick="deleteSingleBillingRecord('${key}', '${monthKey}')">✕</button>`;
                 }
 
-                let paidDisplay = '';
-                if (mData.paid && mData.paid > 0) {
-                    let paidDatePart = mData.paidDate || '';
-                    paidDisplay = `<span class="date-amt-box"><span class="dt-part">${paidDatePart}</span><span class="amt-part">${mData.paid.toLocaleString()}</span></span>`;
-                    paidDisplay += `<button type="button" class="btn-mini-x editable-only" title="수납내역 삭제" onclick="deleteSinglePaymentRecord('${key}', '${monthKey}')">✕</button>`;
-                }
+                let paidDisplay = payReceiptsHtml(key, monthKey, true);   // 정산일자가 이 달인 건을 날짜순으로 (다른 청구월분은 'n월분' 표시)
 
                 let unpaidDisplay = (unpaidVal > 0) 
                     ? `<span style="color:#dc2626; font-weight:600; font-size:11.5px;">${unpaidVal.toLocaleString()}</span>` 
@@ -3628,6 +3720,7 @@
             }
 
             let targetBill = billingDataList[bIndex];
+            if (payClosedAlert([monthKey])) return;
             if (!confirm(`[${monthKey}월] 청구 내역(${targetBill.amount.toLocaleString()}원)을 삭제하시겠습니까?`)) {
                 return;
             }
@@ -3661,6 +3754,7 @@
             }
 
             let mData = paymentDataMap[key][monthKey];
+            if (mData.paid > 0 && payClosedAlert([payMonthOf(monthKey, mData)])) return;
             let delAmt = mData.paid || 0;
             let delDate = mData.paidDate || '-';
 
@@ -3755,7 +3849,7 @@
 
         function vsNormalize() {
             if (!vsSettle || typeof vsSettle !== 'object') vsSettle = {};
-            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed'].forEach(k => {
+            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'payClosed'].forEach(k => {
                 if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
             });
             if (!Array.isArray(vsSettle.confirmLog)) vsSettle.confirmLog = [];
@@ -3972,7 +4066,7 @@
             let nkey = normalizeMemberNo(c.no);
             let pay = (paymentDataMap[nkey] || {})[ym] || {};
             let bill = getBillingInfoForMonth(nkey, ym);
-            return { pay: pay, amount: bill.amount !== null ? bill.amount : (pay.amount || 0) };
+            return { pay: Object.assign({}, pay, { paid: payCashSum(nkey, ym) }), amount: bill.amount !== null ? bill.amount : (pay.amount || 0) };
         }
         function vsAutoIncluded(c, ym) {
             return c.status === '사용' && vsBillIncl(c, ym).amount > 0;
@@ -4045,6 +4139,7 @@
         }
 
         /* 정산 확정 / 확정 해제 (관리자 전용) */
+        let vsHistKind = '', vsHistYm = '';
         function vsNowStr() { return new Date().toLocaleString('ko-KR', { hour12: false }); }
         function vsConfirmMonth() {
             vsNormalize();
@@ -4804,14 +4899,13 @@
         }
 
         /* 확정 이력 */
-        let vsHistKind = '', vsHistYm = '';
         function vsOpenHistory() { vsNormalize(); vsHistKind = ''; openModal('vsHistoryModal'); vsRenderHistory(); }
         function vsRenderHistory() {
             vsNormalize();
             let only = document.getElementById('vsHistMonthOnly').checked;
             let list = vsSettle.confirmLog.map((l, i) => Object.assign({ _i: i }, l)).filter(l => (vsHistKind ? l.kind === vsHistKind : !l.kind) && (!only || l.ym === (vsHistKind ? vsHistYm : vsCurrentMonth))).reverse();
             document.getElementById('vsHistBody').innerHTML = list.length ? list.map(l => {
-                let isC = l.action === '확정';
+                let isC = l.action === '확정' || l.action === '마감';
                 let tag = `<span style="font-size:11px; font-weight:700; padding:1px 8px; border-radius:4px; ${isC ? 'background:#ecfdf5; color:#047857; border:1px solid #6ee7b7;' : 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5;'}">${escHtml(l.action)}</span>`;
                 let det = l.det ? escHtml(l.det) : isC ? `${l.stores !== undefined ? vsNum(l.stores) + '개 매장 · ' : ''}${vsNum(l.qty)}대 · $${vsNum(l.usd)}` : '-';
                 return `<tr><td>${escHtml(l.at)}</td><td class="text-center">${vsMonthLabel(l.ym)}</td><td class="text-center">${tag}</td><td class="text-center">${escHtml(l.by)}</td><td>${det}</td></tr>`;
@@ -5400,7 +5494,7 @@
             sec.push(`<div class="dr-sec"><h4>세금계산서 담당</h4>${drGrid([['담당자', tInfo.taxName], ['전화번호', tInfo.taxPhone], ['이메일', tInfo.taxEmail]])}</div>`);
             let pm = paymentDataMap[no] || {};
             let months = Object.keys(pm).filter(m => /^\d{4}-\d{2}$/.test(m)).sort().reverse().slice(0, 6);
-            sec.push(`<div class="dr-sec"><h4>최근 수금 현황</h4>${months.length ? `<table style="width:100%;"><thead><tr><th>월</th><th class="text-right">청구</th><th class="text-right">입금</th></tr></thead><tbody>${months.map(m => `<tr><td>${m}</td><td class="text-right">${(pm[m].amount || 0).toLocaleString()}</td><td class="text-right" style="color:${(pm[m].paid || 0) >= (pm[m].amount || 0) ? '#059669' : '#dc2626'};">${(pm[m].paid || 0).toLocaleString()}</td></tr>`).join('')}</tbody></table>` : '<div style="font-size:12px; color:#94a3b8;">수금 내역이 없습니다.</div>'}</div>`);
+            sec.push(`<div class="dr-sec"><h4>최근 수금 현황</h4>${months.length ? `<table style="width:100%;"><thead><tr><th>월</th><th class="text-right">청구</th><th class="text-right">입금</th></tr></thead><tbody>${months.map(m => `<tr><td>${m}</td><td class="text-right">${(pm[m].amount || 0).toLocaleString()}</td><td class="text-right" style="color:${payUnpaidFor(no, m, pm[m].amount || 0) === 0 ? '#059669' : '#dc2626'};">${payCashSum(no, m).toLocaleString()}</td></tr>`).join('')}</tbody></table>` : '<div style="font-size:12px; color:#94a3b8;">수금 내역이 없습니다.</div>'}</div>`);
             let logs = (custEditLogMap[no] || []).slice(0, 4);
             sec.push(`<div class="dr-sec"><h4>최근 수정 이력</h4>${logs.length ? logs.map(l => `<div style="font-size:11.5px; color:#475569; padding:3px 0; border-bottom:1px dashed #f1f5f9;">${l}</div>`).join('') : '<div style="font-size:12px; color:#94a3b8;">수정이력이 없습니다.</div>'}</div>`);
             sec.push(`<div class="dr-actions"><button class="btn btn-primary editable-only" style="font-size:12px; padding:6px 12px;" onclick="openDetailModal(${c.idx})">정보 수정</button><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="openCounselModal('${escHtml(c.no)}')">상담내역</button><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="openDocModal('${escHtml(c.no)}')">관련서류</button></div>`);
@@ -5751,8 +5845,7 @@
                 let pMap = paymentDataMap[normalizeMemberNo(item.no)] || {};
                 let curPay = pMap[curMonthVal] || {};
                 let bAmt = (bInfo.amount !== null) ? bInfo.amount : (curPay.amount || 0);
-                let pAmt = curPay.paid || 0;
-                let unpaidVal = Math.max(0, bAmt - pAmt);
+                let unpaidVal = payUnpaidFor(item.no, curMonthVal, bAmt);
 
                 let matchesUnpaid = true;
                 if (selectedUnpaid === 'UNPAID') matchesUnpaid = unpaidVal > 0;
@@ -5779,8 +5872,8 @@
                 let curPay = pMap[curMonthVal] || {};
                 
                 let bAmt = (bInfo.amount !== null) ? bInfo.amount : (curPay.amount || 0);
-                let pAmt = curPay.paid || 0;
-                let unpaidVal = Math.max(0, bAmt - pAmt);
+                let pAmt = payCashSum(item.no, curMonthVal);          // 정산일자가 이 달인 입금 합계
+                let unpaidVal = payUnpaidFor(item.no, curMonthVal, bAmt);
 
                 sums.bill += bAmt;
                 sums.paid += pAmt;
@@ -5792,11 +5885,7 @@
                     billDisplay = `<span class="date-amt-box"><span class="dt-part">${datePart}</span><span class="amt-part">${bAmt.toLocaleString()}</span></span>`;
                 }
 
-                let paidDisplay = '-';
-                if (pAmt > 0) {
-                    let paidDatePart = curPay.paidDate || '';
-                    paidDisplay = `<span class="date-amt-box"><span class="dt-part">${paidDatePart}</span><span class="amt-part">${pAmt.toLocaleString()}</span></span>`;
-                }
+                let paidDisplay = pAmt > 0 ? payReceiptsHtml(item.no, curMonthVal, false) : '-';
 
                 let unpaidDisplay = (unpaidVal > 0)
                     ? `<span style="color:#dc2626; font-weight:700; font-size:12px;">${unpaidVal.toLocaleString()}</span>`
@@ -5819,6 +5908,7 @@
             });
 
             document.getElementById('payment-table-body').innerHTML = tbody;
+            payRenderLockUi();
 
             let countEl = document.getElementById('paySum_count');
             if (countEl) {
@@ -6677,6 +6767,7 @@
 
             let memberNo = normalizeMemberNo(no);
             let normalizedMonth = normalizeYM(month);
+            if (payClosedAlert([normalizedMonth])) return;
 
             billingDataList.unshift({
                 idx: Date.now(),
@@ -7159,6 +7250,10 @@
             if (!paymentDataMap[no]) paymentDataMap[no] = {};
 
             let monthStr = `${currentModalYear}-${month}`;
+            {   // 마감 확인 (새 정산일자의 월 / 덮어쓰게 될 기존 수납의 월)
+                let oldE = paymentDataMap[no][monthStr];
+                if (payClosedAlert([payMonthOf(monthStr, { paidDate: dateVal }), (oldE && oldE.paid > 0) ? payMonthOf(monthStr, oldE) : ''].filter(Boolean))) return;
+            }
             let bInfo = getBillingInfoForMonth(no, monthStr);
             let billAmt = (bInfo.amount !== null) ? bInfo.amount : amtVal;
 
@@ -7325,8 +7420,8 @@
                     '조회연월': curMonthVal,
                     '청구금액': bInfo.amount !== null ? bInfo.amount : (curPay.amount || '-'),
                     '결제일': bInfo.payDate || curPay.billPayDate || '-',
-                    '수납금액': curPay.paid || 0,
-                    '정산일': curPay.paidDate || '-',
+                    '수납금액': payCashSum(item.no, curMonthVal),
+                    '정산일': payReceipts(item.no, curMonthVal).map(r => r.date + (r.billMonth !== curMonthVal ? `(${parseInt(r.billMonth.split('-')[1])}월분)` : '')).join(', ') || '-',
                     '연간총수납금액': summary.paid,
                     '연간미납금액': summary.unpaid,
                     '비고일자': memoInfo.date || '',
@@ -7438,9 +7533,7 @@
             });
             const paidData = months.map(m => {
                 let sum = 0;
-                Object.keys(paymentDataMap).forEach(k => {
-                    if (paymentDataMap[k][m]) sum += (paymentDataMap[k][m].paid || 0);
-                });
+                Object.keys(paymentDataMap).forEach(k => { sum += payCashSum(k, m); });
                 return sum;
             });
 
