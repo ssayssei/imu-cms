@@ -537,9 +537,10 @@
                     <input type="number" id="m_viscovery_fee" placeholder="45">
                 </div>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
                 <div class="form-group"><label>납품처명</label><input type="text" id="m_supplier" placeholder="예: 메트로넷"></div>
                 <div class="form-group"><label>사업자번호</label><input type="text" id="m_biz_no" placeholder="예: 123-45-67890" onblur="autoFillTaxContactByBizNo('m_biz_no', 'm_tax_name', 'm_tax_phone', 'm_tax_email')"></div>
+                <div class="form-group"><label>지역</label><select id="m_region"><option value="">자동 (주소 기준)</option><option value="서울">서울</option><option value="경기">경기</option><option value="인천">인천</option><option value="부산">부산</option><option value="대구">대구</option><option value="광주">광주</option><option value="대전">대전</option><option value="울산">울산</option><option value="세종">세종</option><option value="강원">강원</option><option value="충북">충북</option><option value="충남">충남</option><option value="전북">전북</option><option value="전남">전남</option><option value="경북">경북</option><option value="경남">경남</option><option value="제주">제주</option></select></div>
                 <div class="form-group"><label>영업대표</label><input type="text" id="m_manager" placeholder="예: 오성현L"></div>
             </div>
 
@@ -616,9 +617,10 @@
                     <input type="number" id="edit_viscovery_fee">
                 </div>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
                 <div class="form-group"><label>납품처명</label><input type="text" id="edit_supplier"></div>
                 <div class="form-group"><label>사업자번호</label><input type="text" id="edit_biz_no" onblur="autoFillTaxContactByBizNo('edit_biz_no', 'edit_tax_name', 'edit_tax_phone', 'edit_tax_email')"></div>
+                <div class="form-group"><label>지역</label><select id="edit_region"><option value="">자동 (주소 기준)</option><option value="서울">서울</option><option value="경기">경기</option><option value="인천">인천</option><option value="부산">부산</option><option value="대구">대구</option><option value="광주">광주</option><option value="대전">대전</option><option value="울산">울산</option><option value="세종">세종</option><option value="강원">강원</option><option value="충북">충북</option><option value="충남">충남</option><option value="전북">전북</option><option value="전남">전남</option><option value="경북">경북</option><option value="경남">경남</option><option value="제주">제주</option></select></div>
                 <div class="form-group"><label>영업대표</label><input type="text" id="edit_manager"></div>
             </div>
 
@@ -1148,6 +1150,7 @@
                                     <th class="sortable" onclick="sortTable('type', 'customer')">회원구분 <span class="sort-indicator" id="csort_type"></span></th>
                                     <th class="sortable" onclick="sortTable('supplier', 'customer')">납품처명 <span class="sort-indicator" id="csort_supplier"></span></th>
                                     <th class="sortable" onclick="sortTable('bizNo', 'customer')">사업자번호 <span class="sort-indicator" id="csort_bizNo"></span></th>
+                                    <th class="sortable" onclick="sortTable('region', 'customer')">지역 <span class="sort-indicator" id="csort_region"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'customer')">영업대표 <span class="sort-indicator" id="csort_manager"></span></th>
                                     <th class="text-center">세금계산서 담당</th>
                                     <th class="text-center">관련서류</th>
@@ -1250,6 +1253,7 @@
                                     <th class="text-right sortable" onclick="sortTable('commission', 'aiScannerCustomer')">영업수수료 <span class="sort-indicator" id="aisort_commission"></span></th>
                                     <th class="sortable" onclick="sortTable('supplier', 'aiScannerCustomer')">납품처명 <span class="sort-indicator" id="aisort_supplier"></span></th>
                                     <th class="sortable" onclick="sortTable('bizNo', 'aiScannerCustomer')">사업자번호 <span class="sort-indicator" id="aisort_bizNo"></span></th>
+                                    <th class="sortable" onclick="sortTable('region', 'aiScannerCustomer')">지역 <span class="sort-indicator" id="aisort_region"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'aiScannerCustomer')">영업대표 <span class="sort-indicator" id="aisort_manager"></span></th>
                                     <th class="text-center">관련서류</th>
                                     <th class="text-center">상담내역</th>
@@ -1553,7 +1557,7 @@
                 <!-- 차트 -->
                 <div class="vs-chart-grid">
                     <div class="content-card" style="margin-bottom:0;">
-                        <h3><span>지역별 AI 스캐너 도입 현황</span><span class="vs-hint">막대 클릭 시 하단 목록 필터링</span></h3>
+                        <h3><span>지역별 AI 스캐너 비중</span><span class="vs-hint">조각 클릭 시 하단 목록 필터링</span></h3>
                         <div style="font-size:11px; color:#94a3b8; margin:-6px 0 8px;">* 청구 매장의 지역별 스캐너 대수 (매장 지역 → 없으면 대리점 주소지 지역 기준, 미분류 제외)</div>
                         <div style="height:260px; position:relative;"><canvas id="vsRegionChart"></canvas></div>
                     </div>
@@ -1562,6 +1566,11 @@
                         <div style="font-size:11px; color:#94a3b8; margin:-6px 0 8px;">* 청구 중인 스캐너 보유량 순위 (CJ-Foodville 제외)</div>
                         <div style="height:260px; position:relative;"><canvas id="vsAgencyChart"></canvas></div>
                     </div>
+                </div>
+                <div class="content-card" style="margin-top:16px; margin-bottom:0;">
+                    <h3><span>월별 Viscovery 비용 · 스캐너 추이</span><span class="vs-hint">막대 클릭 시 해당 월로 이동</span></h3>
+                    <div style="font-size:11px; color:#94a3b8; margin:-6px 0 8px;" id="vsTrendNote">* 청구 매장 기준 월별 Viscovery 비용(USD)과 스캐너 대수 (최근 6개월)</div>
+                    <div style="height:230px; position:relative;"><canvas id="vsTrendChart"></canvas></div>
                 </div>
 
                 <!-- 필터 -->
@@ -1777,6 +1786,7 @@
                             <option value="ALL">전체 상태</option><option value="정상">정상</option><option value="소급">소급 (일괄 입금)</option><option value="미납">미납</option><option value="부분입금">부분입금</option><option value="신규">신규</option><option value="해지">해지</option>
                         </select>
                         <select id="csAgencySel" class="filter-select" onchange="csFilter.agency=this.value; csRenderDetail();"></select>
+                        <select id="csRegionSel" class="filter-select" onchange="csFilter.region=this.value; csRenderDetail();"></select>
                     </div>
                     <div class="table-container"><table>
                         <thead id="csDetailHead"></thead>
@@ -2080,6 +2090,25 @@
             return REGION_NAME_MAP[base] || '-';
         }
 
+        /* [추가] 지역: 직접 입력한 값 우선 → 매장 주소 → 대리점 주소 순으로 자동 판단 */
+        const REGION_LIST = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
+        function normalizeRegionInput(v) {
+            v = String(v || '').trim();
+            if (!v || v === '-') return '';
+            let r = extractRegionFromAddress(v);
+            return r !== '-' ? r : '';
+        }
+        function custRegion(c, ag) {
+            if (c.region && c.region !== '-') return c.region;
+            let r = extractRegionFromAddress(c.address || '');
+            if (r !== '-') return r;
+            if (!ag) ag = vsAgencyLookup(c.agencyName || c.agency || c.supplier || '', c.agencyBizNo);
+            return ag ? extractRegionFromAddress(ag.address) : '-';
+        }
+        function regionOptionsHtml(selected) {
+            return '<option value="">자동 (주소 기준)</option>' + REGION_LIST.map(r => `<option value="${r}"${r === selected ? ' selected' : ''}>${r}</option>`).join('');
+        }
+
         /* [추가] 고객의 대리점 사업자번호 표시 (직접 입력값 우선, 없으면 대리점명이 유일하게 일치하는 대리점에서 조회) */
         function getAgencyBizNoDisplay(item) {
             if (item.agencyBizNo && item.agencyBizNo !== '-') return fmtBizNo(item.agencyBizNo);
@@ -2248,8 +2277,8 @@
 
         function downloadCustomerTemplate() {
             const templateHeader = [
-                ['회원번호', '회원명', '납부자 휴대전화', '계약상태', '상품금액', '약정일', '청구시작일', '회원구분', '영업수수료', '엑셀명', '대리점명', '대리점 사업자번호', '납품처명', '사업자번호', '영업대표', '세금계산서담당자', '계산서전화번호', '계산서이메일'],
-                ['6568803322-00', '주식회사 곤트란쉐리에상계본점_AI스캐너', '010-2496-7015', '사용', 165000, '5일', '2026-10-01', 'AI스캐너', 44000, '곤트란쉐리에', '포스뱅크', '123-45-67890', '메트로넷', '656-88-03322', '김원식', '홍길동', '010-1234-5678', 'tax@posbank.com']
+                ['회원번호', '회원명', '납부자 휴대전화', '계약상태', '상품금액', '약정일', '청구시작일', '회원구분', '영업수수료', '엑셀명', '대리점명', '대리점 사업자번호', '납품처명', '사업자번호', '지역', '영업대표', '세금계산서담당자', '계산서전화번호', '계산서이메일'],
+                ['6568803322-00', '주식회사 곤트란쉐리에상계본점_AI스캐너', '010-2496-7015', '사용', 165000, '5일', '2026-10-01', 'AI스캐너', 44000, '곤트란쉐리에', '포스뱅크', '123-45-67890', '메트로넷', '656-88-03322', '경기', '김원식', '홍길동', '010-1234-5678', 'tax@posbank.com']
             ];
             const ws = XLSX.utils.aoa_to_sheet(templateHeader);
             const wb = XLSX.utils.book_new();
@@ -2741,6 +2770,7 @@
                         let supplier = String(row['납품처명'] || row['납품처'] || '-').trim();
                         let bizNo = String(row['사업자번호'] || row['사업자 번호'] || row['가맹점'] || '-').trim();
                         let manager = String(row['영업대표'] || row['담당자'] || '-').trim();
+                        let regionIn = normalizeRegionInput(row['지역']);
 
                         let taxName = String(row['세금계산서담당자'] || row['계산서담당자'] || '').trim();
                         let taxPhone = String(row['계산서전화번호'] || row['담당자전화번호'] || '').trim();
@@ -2775,6 +2805,7 @@
                             customerDataList[existingIndex].supplier = supplier;
                             customerDataList[existingIndex].bizNo = bizNo;
                             customerDataList[existingIndex].manager = manager;
+                            if (regionIn) customerDataList[existingIndex].region = regionIn;
                             customerDataList[existingIndex].taxName = taxName;
                             customerDataList[existingIndex].taxPhone = taxPhone;
                             customerDataList[existingIndex].taxEmail = taxEmail;
@@ -2797,6 +2828,7 @@
                                 supplier: supplier,
                                 bizNo: bizNo,
                                 manager: manager,
+                                region: regionIn,
                                 taxName: taxName,
                                 taxPhone: taxPhone,
                                 taxEmail: taxEmail
@@ -3909,6 +3941,7 @@
         let vsFilter = { q: '', region: 'ALL', agency: 'ALL', rep: 'ALL', op: 'ALL' };
         let vsRegionChart = null;
         let vsAgencyChart = null;
+        let vsTrendChart = null;
         let vsFxMonthInit = '';
 
         function vsNormalize() {
@@ -4183,8 +4216,7 @@
                 let agencyName = c.agencyName || c.agency || c.supplier || '-';
                 let ag = vsAgencyLookup(agencyName, c.agencyBizNo);
                 let agencyBiz = c.agencyBizNo || (ag ? ag.bizNo : '') || '';
-                let region = c.region || extractRegionFromAddress(c.address || '');
-                if (!region || region === '-') region = ag ? extractRegionFromAddress(ag.address) : '-';
+                let region = custRegion(c, ag);
                 let billAmt = Math.round(billIncl / f);
                 let deposit = Math.round(depIncl / f);
                 let paybackBase = Math.round((c.commission || 0) / f);
@@ -4505,30 +4537,80 @@
 
             if (vsRegionChart) vsRegionChart.destroy();
             if (vsAgencyChart) vsAgencyChart.destroy();
+            if (vsTrendChart) vsTrendChart.destroy();
+            const PAL = ['#3b82f6', '#14b8a6', '#8b5cf6', '#f59e0b', '#ec4899', '#64748b', '#22c55e', '#06b6d4'];
             let c1 = document.getElementById('vsRegionChart');
             let c2 = document.getElementById('vsAgencyChart');
+            let c3 = document.getElementById('vsTrendChart');
             if (c1) {
+                let totQty = regE.reduce((a, e) => a + e[1], 0);
                 vsRegionChart = new Chart(c1, {
-                    type: 'bar',
-                    data: { labels: regE.map(e => e[0]), datasets: [{ data: regE.map(e => e[1]), backgroundColor: '#60a5fa', borderColor: '#3b82f6', borderWidth: 1, borderRadius: 4 }] },
+                    type: 'doughnut',
+                    data: { labels: regE.map(e => e[0]), datasets: [{ data: regE.map(e => e[1]), backgroundColor: regE.map((e, i) => PAL[i % PAL.length]), borderColor: '#fff', borderWidth: 2, hoverOffset: 6 }] },
                     options: {
-                        maintainAspectRatio: false, plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                        maintainAspectRatio: false, cutout: '62%',
+                        plugins: {
+                            legend: { position: 'right', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, font: { size: 12 } } },
+                            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}대 (${totQty ? Math.round(ctx.parsed / totQty * 100) : 0}%)` } }
+                        },
                         onClick: (e, els) => { if (els.length) { vsFilter.region = regE[els[0].index][0]; renderViscoveryDashboard(); } }
-                    }
+                    },
+                    plugins: [{
+                        id: 'vsCenterText',
+                        afterDraw(ch) {
+                            let a = ch.getDatasetMeta(0).data[0]; if (!a) return;
+                            let ctx = ch.ctx; ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                            ctx.fillStyle = '#0f172a'; ctx.font = '800 26px sans-serif'; ctx.fillText(String(totQty), a.x, a.y - 8);
+                            ctx.fillStyle = '#64748b'; ctx.font = '600 12px sans-serif'; ctx.fillText('스캐너(대)', a.x, a.y + 16);
+                            ctx.restore();
+                        }
+                    }]
                 });
             }
             if (c2) {
                 vsAgencyChart = new Chart(c2, {
                     type: 'bar',
-                    data: { labels: agE.map(e => e[0]), datasets: [{ data: agE.map(e => e[1]), backgroundColor: 'rgba(20,160,140,.8)', borderColor: '#0f766e', borderWidth: 1, borderRadius: 4 }] },
+                    data: { labels: agE.map(e => e[0]), datasets: [{ data: agE.map(e => e[1]), backgroundColor: PAL[1], borderRadius: 5, maxBarThickness: 22 }] },
                     options: {
                         indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } },
-                        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } },
+                        scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#f1f5f9' } }, y: { grid: { display: false } } },
                         onClick: (e, els) => { if (els.length) { vsFilter.agency = agE[els[0].index][0]; renderViscoveryDashboard(); } }
                     }
                 });
             }
+            if (c3) {
+                let tr = vsTrendData();
+                let note = document.getElementById('vsTrendNote');
+                if (note) note.innerText = tr.length < 3 ? '* 청구 매장 기준 월별 Viscovery 비용(USD)과 스캐너 대수 · ERP 도입 이후 월부터 집계되어 월이 쌓일수록 추이가 선명해집니다' : '* 청구 매장 기준 월별 Viscovery 비용(USD)과 스캐너 대수 (최근 6개월)';
+                vsTrendChart = new Chart(c3, {
+                    data: {
+                        labels: tr.map(t => t.ym.replace('-', '.')),
+                        datasets: [
+                            { type: 'bar', label: 'Viscovery 비용 (USD)', data: tr.map(t => t.usd), yAxisID: 'y', backgroundColor: tr.map(t => t.ym === vsCurrentMonth ? '#f59e0b' : '#fcd34d'), borderRadius: 6, maxBarThickness: 46, order: 2 },
+                            { type: 'line', label: '스캐너 (대)', data: tr.map(t => t.qty), yAxisID: 'y1', borderColor: '#6366f1', backgroundColor: '#6366f1', pointRadius: 4, pointHoverRadius: 6, tension: 0.25, order: 1 }
+                        ]
+                    },
+                    options: {
+                        maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 10, usePointStyle: true, font: { size: 12 } } } },
+                        scales: {
+                            y: { beginAtZero: true, position: 'left', title: { display: true, text: 'USD' }, grid: { color: '#f1f5f9' } },
+                            y1: { beginAtZero: true, position: 'right', title: { display: true, text: '대' }, grid: { drawOnChartArea: false }, ticks: { precision: 0 } },
+                            x: { grid: { display: false } }
+                        },
+                        onClick: (e, els) => { if (els.length) { let t = tr[els[0].index]; if (t && t.ym !== vsCurrentMonth) vsChangeMonth(t.ym); } }
+                    }
+                });
+            }
+        }
+        /* 월별 추이: 청구 매장이 있는 최근 6개월(오름차순) */
+        function vsTrendData() {
+            let out = [];
+            vsAllMonths().slice().sort().forEach(ym => {
+                let rows = vsBuildRows(ym);
+                if (rows.length) out.push({ ym: ym, usd: vsSum(rows, r => r.usd), qty: vsSum(rows, r => r.qty), stores: rows.length });
+            });
+            return out.slice(-6);
         }
 
         function vsOpenUnpaid() {
@@ -5147,7 +5229,7 @@
            - 확정: vsSettle.commConfirmed[연월] = { at, by, rows }
         ===================================================================== */
         let csCurrentMonth = '';
-        let csFilter = { q: '', status: 'ALL', agency: 'ALL' };
+        let csFilter = { q: '', status: 'ALL', agency: 'ALL', region: 'ALL' };
         let csLastGroups = [];
         function csIsConfirmed(ym) { return !!(vsSettle && vsSettle.commConfirmed && vsSettle.commConfirmed[ym]); }
         function csShiftYm(ym, d) { let p = ym.split('-').map(Number); let x = new Date(p[0], p[1] - 1 + d, 1); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); }
@@ -5192,7 +5274,7 @@
                 rows.push({
                     key: vsSafeKey(c.no), no: c.no, store: c.excelName || c.name || '-', biz: c.bizNo && c.bizNo !== '-' ? c.bizNo : '',
                     agency: agencyName, agencyBiz: c.agencyBizNo || (ag ? ag.bizNo : '') || '',
-                    rep: c.manager || '-', qty: (c.qty !== undefined && c.qty !== null) ? c.qty : 1,
+                    region: custRegion(c, ag), rep: c.manager || '-', qty: (c.qty !== undefined && c.qty !== null) ? c.qty : 1,
                     bill: cM.bill, payback: payback,
                     cells: cells.map(x => ({ t: x.t, v: x.v })), months: months, state: state, unpaidAmt: unpaidAmt,
                     settle: payback * months
@@ -5285,6 +5367,10 @@
             let asel = document.getElementById('csAgencySel');
             asel.innerHTML = '<option value="ALL">전체 대리점</option>' + csLastGroups.map(g => `<option value="${escHtml(g.agency)}"${g.agency === csFilter.agency ? ' selected' : ''}>${escHtml(g.agency)}</option>`).join('');
             if (csFilter.agency !== 'ALL' && !csLastGroups.some(g => g.agency === csFilter.agency)) csFilter.agency = 'ALL';
+            let regs = Array.from(new Set(rows.map(r => r.region || '-').filter(x => x !== '-'))).sort((a, b) => a.localeCompare(b, 'ko'));
+            if (rows.some(r => !r.region || r.region === '-')) regs.push('-');
+            document.getElementById('csRegionSel').innerHTML = '<option value="ALL">전체 지역</option>' + regs.map(r => `<option value="${r}"${r === csFilter.region ? ' selected' : ''}>${r === '-' ? '지역 미지정' : r}</option>`).join('');
+            if (csFilter.region !== 'ALL' && !regs.includes(csFilter.region)) csFilter.region = 'ALL';
             document.getElementById('csStatusSel').value = csFilter.status;
             document.getElementById('csSearch').value = csFilter.q;
             csRenderDetail();
@@ -5293,17 +5379,17 @@
         function csRenderDetail() {
             if (!csCurrentMonth) return;
             let ym = csCurrentMonth, win = csWindow(ym), q = (csFilter.q || '').toLowerCase().trim();
-            document.getElementById('csDetailHead').innerHTML = `<tr><th>대리점</th><th>매장명</th><th class="text-center">영업대표</th><th class="text-center">수량</th><th class="text-right">월 청구비용</th><th class="text-right">월 영업수수료</th>${win.map((m, i) => `<th class="text-center"${i === 2 ? ' style="color:#059669;"' : ''}>${csMm(m)} 입금</th>`).join('')}<th class="text-right" style="color:#4f46e5;">매장 정산금</th><th class="text-right" style="color:#1d4ed8; background:#eff6ff;">대리점 정산금</th></tr>`;
+            document.getElementById('csDetailHead').innerHTML = `<tr><th>대리점</th><th>매장명</th><th class="text-center">지역</th><th class="text-center">영업대표</th><th class="text-center">수량</th><th class="text-right">월 청구비용</th><th class="text-right">월 영업수수료</th>${win.map((m, i) => `<th class="text-center"${i === 2 ? ' style="color:#059669;"' : ''}>${csMm(m)} 입금</th>`).join('')}<th class="text-right" style="color:#4f46e5;">매장 정산금</th><th class="text-right" style="color:#1d4ed8; background:#eff6ff;">대리점 정산금</th></tr>`;
             let html = '', shown = 0;
             csLastGroups.forEach(g => {
                 if (csFilter.agency !== 'ALL' && g.agency !== csFilter.agency) return;
-                let rs = g.rows.filter(r => (csFilter.status === 'ALL' || r.state === csFilter.status) && (!q || (g.agency + ' ' + r.store + ' ' + r.rep).toLowerCase().includes(q)));
+                let rs = g.rows.filter(r => (csFilter.status === 'ALL' || r.state === csFilter.status) && (csFilter.region === 'ALL' || (r.region || '-') === csFilter.region) && (!q || (g.agency + ' ' + r.store + ' ' + r.rep).toLowerCase().includes(q)));
                 rs.forEach((r, i) => {
                     shown++;
                     let stTag = r.state === '소급' ? ` <span class="cs-b cs-retro" style="font-size:10px;">소급 ${r.months}개월</span>` : '';
                     html += `<tr>
                         ${i === 0 ? `<td rowspan="${rs.length}" style="font-weight:700; vertical-align:middle; background:#f8fafc; border-right:1px solid #e2e8f0;">${escHtml(g.agency)}</td>` : ''}
-                        <td>${escHtml(r.store)}${stTag}</td><td class="text-center">${escHtml(r.rep)}</td><td class="text-center">${r.qty}</td>
+                        <td>${escHtml(r.store)}${stTag}</td><td class="text-center">${escHtml(r.region || '-')}</td><td class="text-center">${escHtml(r.rep)}</td><td class="text-center">${r.qty}</td>
                         <td class="text-right">${vsNum(r.bill)}</td><td class="text-right">${vsNum(r.payback)}</td>
                         ${r.cells.map(x => `<td class="text-center">${csCellHtml(x, r.bill)}</td>`).join('')}
                         <td class="text-right" style="font-weight:700; color:${r.settle ? '#4f46e5' : '#94a3b8'};">${vsNum(r.settle)}</td>
@@ -5311,7 +5397,7 @@
                     </tr>`;
                 });
             });
-            document.getElementById('csDetailBody').innerHTML = html || '<tr><td colspan="11" style="text-align:center; color:#94a3b8; padding:24px;">조건에 맞는 매장이 없습니다.</td></tr>';
+            document.getElementById('csDetailBody').innerHTML = html || '<tr><td colspan="12" style="text-align:center; color:#94a3b8; padding:24px;">조건에 맞는 매장이 없습니다.</td></tr>';
         }
         function csSetStatus(s) { csFilter.status = s; document.getElementById('csStatusSel').value = s; csRenderDetail(); document.getElementById('csDetailHead').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
         function csSetAgency(i) {
@@ -5321,7 +5407,7 @@
             csRenderDetail();
             document.getElementById('csDetailHead').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        function csChangeMonth(ym) { csCurrentMonth = ym; csFilter = { q: '', status: 'ALL', agency: 'ALL' }; renderCommissionSettle(); }
+        function csChangeMonth(ym) { csCurrentMonth = ym; csFilter = { q: '', status: 'ALL', agency: 'ALL', region: 'ALL' }; renderCommissionSettle(); }
         function csGenPrev() {
             let ym = (document.getElementById('csGenBtn').dataset || {}).ym;
             if (!ym) return;
@@ -5431,18 +5517,18 @@
             s1.push({ '정산연월': '', '지급예정일': '', '대리점': '합계', '대리점 사업자번호': '', '매장 수': D.rows.length, '스캐너 수량': D.qty, [csMm(D.ym) + ' 입금 합계(원)']: D.dep, '정산 제외 매장 수': D.rows.filter(r => r.settle === 0).length, '영업수수료 정산금(원)': D.total });
             let s2 = [];
             D.groups.forEach(g => g.rows.forEach((r, i) => {
-                let o = { '대리점': g.agency, '매장명': r.store, '세금계산서 사업자번호': vsFormatBiz(r.biz), '영업대표': r.rep, 'AI스캐너 수량': r.qty, '월 청구비용(VAT포함)': r.bill, '월 영업수수료(VAT포함)': r.payback };
+                let o = { '대리점': g.agency, '매장명': r.store, '세금계산서 사업자번호': vsFormatBiz(r.biz), '지역': r.region || '-', '영업대표': r.rep, 'AI스캐너 수량': r.qty, '월 청구비용(VAT포함)': r.bill, '월 영업수수료(VAT포함)': r.payback };
                 D.win.forEach((m, k) => { o[csMm(m) + ' CMS 입금'] = csCellText(r.cells[k]); });
                 o['정산 개월 수'] = r.months; o['상태'] = r.state; o['매장 정산금(원)'] = r.settle; o['대리점 정산금(원)'] = i === 0 ? g.settle : '';
                 s2.push(o);
             }));
-            let t = { '대리점': '합계', '매장명': '', '세금계산서 사업자번호': '', '영업대표': '', 'AI스캐너 수량': D.qty, '월 청구비용(VAT포함)': vsSum(D.rows, r => r.bill), '월 영업수수료(VAT포함)': vsSum(D.rows, r => r.payback) };
+            let t = { '대리점': '합계', '매장명': '', '세금계산서 사업자번호': '', '지역': '', '영업대표': '', 'AI스캐너 수량': D.qty, '월 청구비용(VAT포함)': vsSum(D.rows, r => r.bill), '월 영업수수료(VAT포함)': vsSum(D.rows, r => r.payback) };
             D.win.forEach((m, k) => { t[csMm(m) + ' CMS 입금'] = k === 2 ? D.dep : ''; });
             t['정산 개월 수'] = ''; t['상태'] = ''; t['매장 정산금(원)'] = D.total; t['대리점 정산금(원)'] = D.total;
             s2.push(t);
             let ws1 = XLSX.utils.json_to_sheet(s1), ws2 = XLSX.utils.json_to_sheet(s2);
             ws1['!cols'] = [{ wch: 10 }, { wch: 12 }, { wch: 22 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 20 }];
-            ws2['!cols'] = [{ wch: 20 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 18 }];
+            ws2['!cols'] = [{ wch: 20 }, { wch: 30 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 18 }];
             let wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws1, '대리점별 정산');
             XLSX.utils.book_append_sheet(wb, ws2, '매장별 상세');
@@ -5548,7 +5634,7 @@
             let agKey = cleanBizNo(agBiz);
             let agLink = (agKey && taxContactMap[agKey]) ? ` <a href="#" onclick="drawerOpen('agency:${agKey}'); return false;" style="font-size:11px; color:#2563eb;">대리점 보기 ›</a>` : '';
             let sec = [];
-            sec.push(`<div class="dr-sec"><h4>계약 정보</h4>${drGrid([['청구시작일', c.startDate], ['상품금액', c.amount > 0 ? c.amount.toLocaleString() + ' 원' : '-'], ['약정일', c.contractDay], ['납부자 휴대전화', c.phone], ['영업대표', c.manager]])}</div>`);
+            sec.push(`<div class="dr-sec"><h4>계약 정보</h4>${drGrid([['청구시작일', c.startDate], ['상품금액', c.amount > 0 ? c.amount.toLocaleString() + ' 원' : '-'], ['약정일', c.contractDay], ['납부자 휴대전화', c.phone], ['지역', custRegion(c)], ['영업대표', c.manager]])}</div>`);
             sec.push(`<div class="dr-sec"><h4>대리점</h4>${drGrid([['대리점명', (agName || '-') + agLink, true], ['대리점 사업자번호', agBiz], ['납품처명', c.supplier], ['사업자번호', c.bizNo || c.store]])}</div>`);
             if (c.type === 'AI스캐너' || c.viscoveryName || c.excelName) {
                 let unit = (viscoveryRateConfig && viscoveryRateConfig.defaultUnitPrice) ? viscoveryRateConfig.defaultUnitPrice : 45;
@@ -5678,10 +5764,10 @@
         /* ===== 열 선택 (표별로 보이는 열을 고르고 브라우저에 기억) ===== */
         const COLVIS = {
             customer: { table: 'customerTable', title: '고객관리',
-                cols: ['', 'NO.', '대리점명', '대리점 사업자번호', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '납품처명', '사업자번호', '영업대표', '세금계산서 담당', '관련서류', '상담내역'],
+                cols: ['', 'NO.', '대리점명', '대리점 사업자번호', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '세금계산서 담당', '관련서류', '상담내역'],
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호', '세금계산서 담당'] },
             aiCustomer: { table: 'aiCustomerTable', title: 'AI스캐너 고객관리',
-                cols: ['', 'NO.', '엑셀명', '대리점명', 'Viscovery명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '수량', 'Viscovery수수료', '영업수수료', '납품처명', '사업자번호', '영업대표', '관련서류', '상담내역'],
+                cols: ['', 'NO.', '엑셀명', '대리점명', 'Viscovery명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '수량', 'Viscovery수수료', '영업수수료', '납품처명', '사업자번호', '지역', '영업대표', '관련서류', '상담내역'],
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호'] },
             agency: { table: 'agencyTable', title: '대리점 관리',
                 cols: ['', 'NO.', '사업자번호', '대리점명', '지역', '주소지', '연결 매장수', '세금계산서 담당자명', '담당자 전화번호', '세금계산서 수신 이메일', '비고', '관리'],
@@ -5766,6 +5852,7 @@
                 let valA = a[key] !== undefined ? a[key] : '';
                 let valB = b[key] !== undefined ? b[key] : '';
 
+                if (key === 'region') { valA = custRegion(a); valB = custRegion(b); }
                 if (type === 'payment') {
                     let payA = getYearlySummary(a.no, currentModalYear);
                     let payB = getYearlySummary(b.no, currentModalYear);
@@ -6091,6 +6178,7 @@
                     <td>${item.type}</td>
                     <td>${item.supplier || item.agency || '-'}</td>
                     <td>${item.bizNo || item.store || '-'}</td>
+                    <td>${custRegion(item)}</td>
                     <td>${item.manager || '-'}</td>
                     <td class="text-center">${taxSummary}</td>
                     <td class="text-center"><button class="btn-action" onclick="openDocModal('${item.no}')">서류등록</button></td>
@@ -6137,6 +6225,7 @@
                     <td class="text-right" style="font-weight:600; color:#2563eb;">${commissionDisplay}</td>
                     <td>${item.supplier || '-'}</td>
                     <td>${item.bizNo || '-'}</td>
+                    <td>${custRegion(item)}</td>
                     <td>${item.manager || '-'}</td>
                     <td class="text-center"><button class="btn-action" onclick="openDocModal('${item.no}')">서류등록</button></td>
                     <td class="text-center"><button class="btn-action" onclick="openCounselModal('${item.no}')">상담내역</button></td>
@@ -6689,6 +6778,7 @@
             document.getElementById('edit_supplier').value = item.supplier || '';
             document.getElementById('edit_biz_no').value = item.bizNo || item.store || '';
             document.getElementById('edit_manager').value = item.manager || '';
+            document.getElementById('edit_region').value = (item.region && item.region !== '-') ? item.region : '';
 
             let k = cleanBizNo(item.bizNo);
             let tInfo = (k && taxContactMap[k]) ? taxContactMap[k] : { taxName: item.taxName, taxPhone: item.taxPhone, taxEmail: item.taxEmail };
@@ -7246,6 +7336,7 @@
             item.supplier = document.getElementById('edit_supplier').value.trim();
             item.bizNo = document.getElementById('edit_biz_no').value.trim();
             item.manager = document.getElementById('edit_manager').value.trim();
+            item.region = document.getElementById('edit_region').value;
 
             let taxName = document.getElementById('edit_tax_name').value.trim();
             let taxPhone = document.getElementById('edit_tax_phone').value.trim();
@@ -7421,6 +7512,7 @@
                     '영업수수료': item.commission || 0,
                     '납품처명': item.supplier || '-',
                     '사업자번호': item.bizNo || '-',
+                    '지역': custRegion(item),
                     '영업대표': item.manager || '-'
                 }));
                 var ws = XLSX.utils.json_to_sheet(excelRows);
@@ -7455,6 +7547,7 @@
                         '회원구분': item.type,
                         '납품처명': item.supplier || item.agency || '-',
                         '사업자번호': item.bizNo || item.store || '-',
+                        '지역': custRegion(item),
                         '영업대표': item.manager || '-',
                         '세금계산서담당자': tInfo.taxName || '-',
                         '계산서전화번호': tInfo.taxPhone || '-',
@@ -7553,6 +7646,7 @@
                 supplier: document.getElementById('m_supplier').value.trim() || '-',
                 bizNo: bizNo,
                 manager: document.getElementById('m_manager').value.trim() || '-',
+                region: document.getElementById('m_region').value,
                 taxName: taxName,
                 taxPhone: taxPhone,
                 taxEmail: taxEmail
