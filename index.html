@@ -586,6 +586,16 @@
                 <div class="form-group"><label>약정일</label><input type="text" id="edit_contract_day" placeholder="예: 5일, 10일"></div>
                 <div class="form-group"><label>회원구분</label><input type="text" id="edit_type"></div>
             </div>
+            <div id="edit_payback_wrap" style="display:none; grid-template-columns: 1fr 2fr; gap: 8px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 10px; margin-bottom:8px;">
+                <div class="form-group" style="margin:0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <label style="margin:0;">페이백금액(원)</label>
+                        <button type="button" class="btn btn-outline" style="padding:1px 6px; font-size:11px;" onclick="document.getElementById('edit_payback').value = pbCalcAmount(parseCleanInt(document.getElementById('edit_amount').value, 0))">자동계산</button>
+                    </div>
+                    <input type="number" id="edit_payback">
+                </div>
+                <div style="font-size:11.5px; color:#475569; align-self:center; line-height:1.6;">페이백 대상 매장입니다. 매월 100% 입금 시 지급되는 금액이며, '수수료 요율 관리'의 페이백 요율로 자동계산할 수 있습니다.</div>
+            </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
                 <div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
@@ -1808,7 +1818,7 @@
             <div id="view-paybackCustomer" class="view-section">
                 <div class="content-card" style="margin-bottom:16px; padding:14px 18px;">
                     <div style="font-size:15px; font-weight:800; color:#0f172a;">페이백 매장 추가</div>
-                    <div style="font-size:12px; color:#64748b; margin-top:2px; line-height:1.6;">고객관리의 회원 중 페이백 대상 매장을 검색해서 추가합니다. 페이백금액(매월 100% 입금 시 지급액)은 '관리자맵 &gt; 수수료 요율 관리'의 페이백 요율로 자동 계산되며 직접 수정도 가능합니다. (↻ = 요율대로 다시 계산)</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px; line-height:1.6;">고객관리의 회원 중 페이백 대상 매장을 검색해서 추가합니다. 페이백금액(매월 100% 입금 시 지급액)은 '관리자맵 &gt; 수수료 요율 관리'의 페이백 요율로 자동 계산되며 수정은 매장의 '회원번호'를 눌러 열리는 고객 세부정보 창에서 합니다.</div>
                     <div class="editable-only" style="position:relative; margin-top:10px; width:560px; max-width:100%;">
                         <input type="text" id="pbSearch" autocomplete="off" placeholder="🔍 회원번호 또는 회원명으로 검색 → 클릭하면 페이백 매장으로 추가" oninput="pbSearchRender()" onfocus="pbSearchRender()" style="width:100%; padding:9px 12px; border:1px solid #93c5fd; border-radius:8px; font-size:13px; box-sizing:border-box;">
                         <div id="pbSearchResult" style="display:none; position:absolute; z-index:30; left:0; right:0; top:100%; margin-top:4px; background:#fff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 8px 24px rgba(15,23,42,.15); max-height:320px; overflow:auto;"></div>
@@ -5862,9 +5872,7 @@
             document.getElementById('pbCustBody').innerHTML = rows.length ? rows.map(r => {
                 let c = r.c;
                 let badge = c.status === '사용' ? '<span class="badge-status badge-use">사용</span>' : '<span class="badge-status badge-stop">' + escHtml(c.status || '-') + '</span>';
-                let pbCell = canEdit
-                    ? `<span style="display:inline-flex; align-items:center; gap:4px;" onclick="event.stopPropagation()"><input type="text" value="${r.pbAmount.toLocaleString()}" onfocus="this.value=this.value.replace(/,/g,'')" onchange="pbSetAmount('${escHtml(c.no)}', this.value)" style="width:84px; text-align:right; padding:4px 6px; border:1px solid #bfdbfe; border-radius:6px; font-size:12.5px; font-weight:700; color:#2563eb; background:#f8fbff;"><span style="color:#2563eb; font-weight:600;">원</span><button class="btn-action" title="페이백 수수료 요율표대로 다시 계산" onclick="pbReapply('${escHtml(c.no)}')">↻</button></span>`
-                    : `<span style="font-weight:600; color:#2563eb;">${won(r.pbAmount)}</span>`;
+                let pbCell = `<span style="font-weight:600; color:#2563eb;">${won(r.pbAmount)}</span>`;
                 return `<tr data-drawer="cust:${c.idx}" title="클릭하면 오른쪽에 상세 정보가 열립니다" style="cursor:pointer;">
                     <td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="pb-check" value="${escHtml(c.no)}" /></td>
                     <td class="text-center">${c.idx}</td>
@@ -7346,6 +7354,8 @@
             document.getElementById('edit_contract_day').value = item.contractDay || '';
             document.getElementById('edit_type').value = item.type || '';
             document.getElementById('edit_commission').value = item.commission || '';
+            let pbw = document.getElementById('edit_payback_wrap'), pbe = paybackMap[normalizeMemberNo(item.no)];
+            if (pbw) { pbw.style.display = pbe ? 'grid' : 'none'; document.getElementById('edit_payback').value = pbe ? (pbe.amount || 0) : ''; }
             document.getElementById('edit_excel_name').value = item.excelName || '';
             document.getElementById('edit_agency_name').value = item.agencyName || item.agency || '';
             document.getElementById('edit_agency_biz_no').value = item.agencyBizNo || '';
@@ -7903,6 +7913,12 @@
             item.contractDay = document.getElementById('edit_contract_day').value.trim();
             item.type = document.getElementById('edit_type').value.trim();
             item.commission = parseCleanInt(document.getElementById('edit_commission').value, 0);
+            let pbKey = normalizeMemberNo(item.no);
+            if (paybackMap[pbKey] && document.getElementById('edit_payback_wrap').style.display !== 'none') {
+                let np = parseCleanInt(document.getElementById('edit_payback').value, 0);
+                if (np !== (paybackMap[pbKey].amount || 0)) logEditRecord('CUST', pbKey, `페이백금액 변경 (${(paybackMap[pbKey].amount || 0).toLocaleString()}원 -> ${np.toLocaleString()}원)`);
+                paybackMap[pbKey].amount = np;
+            }
             item.excelName = document.getElementById('edit_excel_name').value.trim();
             item.agencyName = document.getElementById('edit_agency_name').value.trim();
             item.agencyBizNo = fmtBizNo(document.getElementById('edit_agency_biz_no').value.trim());
@@ -7945,6 +7961,7 @@
             updateTabBadges();
             filterCustomerTable();
             filterAiScannerCustomerTable();
+            try { renderPaybackCustomer(); } catch (e) {}
             renderDashboardCharts();
             closeModal('detailModal');
             alert("고객 세부 내역이 수정되었습니다.\n(동일 사업자번호의 모든 가맹점에도 세금계산서 연락처가 자동 동기화되었습니다)");
