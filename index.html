@@ -1807,36 +1807,66 @@
             <!-- [페이백 > 페이백 고객관리] -->
             <div id="view-paybackCustomer" class="view-section">
                 <div class="content-card" style="margin-bottom:16px; padding:14px 18px;">
-                    <div style="font-size:18px; font-weight:800; color:#0f172a;">페이백 고객관리</div>
-                    <div style="font-size:12px; color:#64748b; margin-top:2px;">고객관리의 회원 중 페이백 대상 매장을 직접 추가합니다. 페이백금액(매월 100% 입금 시 지급액)은 '관리자맵 > 수수료 요율 관리'의 페이백 요율로 자동 계산되며 직접 수정도 가능합니다. (↻ = 요율대로 다시 계산)</div>
-                    <div class="editable-only" style="position:relative; margin-top:12px; max-width:560px;">
+                    <div style="font-size:15px; font-weight:800; color:#0f172a;">페이백 매장 추가</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px; line-height:1.6;">고객관리의 회원 중 페이백 대상 매장을 검색해서 추가합니다. 페이백금액(매월 100% 입금 시 지급액)은 '관리자맵 &gt; 수수료 요율 관리'의 페이백 요율로 자동 계산되며 직접 수정도 가능합니다. (↻ = 요율대로 다시 계산)</div>
+                    <div class="editable-only" style="position:relative; margin-top:10px; width:560px; max-width:100%;">
                         <input type="text" id="pbSearch" autocomplete="off" placeholder="🔍 회원번호 또는 회원명으로 검색 → 클릭하면 페이백 매장으로 추가" oninput="pbSearchRender()" onfocus="pbSearchRender()" style="width:100%; padding:9px 12px; border:1px solid #93c5fd; border-radius:8px; font-size:13px; box-sizing:border-box;">
                         <div id="pbSearchResult" style="display:none; position:absolute; z-index:30; left:0; right:0; top:100%; margin-top:4px; background:#fff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 8px 24px rgba(15,23,42,.15); max-height:320px; overflow:auto;"></div>
                     </div>
                 </div>
+
+                <div class="filter-container-box">
+                    <div class="status-tab-group">
+                        <span style="font-size:13px; font-weight:700; color:#475569; margin-right:4px;">계약상태:</span>
+                        <div class="status-tab active" data-pbtab="ALL" onclick="pbSelectTab('ALL', this)"><span>전체 목록</span><span class="status-tab-badge" id="pb_tab_all">0명</span></div>
+                        <div class="status-tab" data-pbtab="사용" onclick="pbSelectTab('사용', this)"><span>사용</span><span class="status-tab-badge" id="pb_tab_use">0명</span></div>
+                        <div class="status-tab" data-pbtab="중지" onclick="pbSelectTab('중지', this)"><span>중지</span><span class="status-tab-badge" id="pb_tab_stop">0명</span></div>
+                    </div>
+                    <div class="filter-dropdown-row">
+                        <div class="filter-group"><label>대리점명:</label><select id="pbFAgency" class="filter-select" onchange="pbCustFilter.agency=this.value; renderPaybackCustomer();"><option value="ALL">전체 대리점</option></select></div>
+                        <div class="filter-group"><label>납품처명:</label><select id="pbFSupplier" class="filter-select" onchange="pbCustFilter.supplier=this.value; renderPaybackCustomer();"><option value="ALL">전체 납품처명</option></select></div>
+                        <div class="filter-group"><label>영업대표:</label><select id="pbFManager" class="filter-select" onchange="pbCustFilter.manager=this.value; renderPaybackCustomer();"><option value="ALL">전체 영업대표</option></select></div>
+                        <div></div>
+                        <div><button class="btn btn-outline" style="font-size:12px; padding: 6px 12px;" onclick="pbResetFilter()">초기화</button></div>
+                    </div>
+                </div>
+
                 <div class="content-card">
-                    <h3><span>페이백 매장 내역 <span id="pbCustCount" style="font-size:12px; color:#64748b; font-weight:600;"></span></span>
-                        <div class="card-actions"><button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="pbCustExcel()">엑셀 다운로드</button></div></h3>
-                    <div class="table-container"><table>
-                        <thead><tr>
-                            <th class="text-center">NO.</th>
-                            <th class="sortable" onclick="pbCustSort('agencyName')">대리점명 <span class="sort-indicator" id="pbcs_agencyName"></span></th>
-                            <th class="sortable" onclick="pbCustSort('no')">회원번호 <span class="sort-indicator" id="pbcs_no"></span></th>
-                            <th class="sortable" onclick="pbCustSort('name')">회원명 <span class="sort-indicator" id="pbcs_name"></span></th>
-                            <th class="sortable" onclick="pbCustSort('phone')">납부자 휴대전화 <span class="sort-indicator" id="pbcs_phone"></span></th>
-                            <th class="sortable" onclick="pbCustSort('status')">계약상태<br><span style="font-size:10px; font-weight:normal; color:#64748b;">(청구시작일)</span> <span class="sort-indicator" id="pbcs_status"></span></th>
-                            <th class="text-right sortable" onclick="pbCustSort('amount')">상품금액 <span class="sort-indicator" id="pbcs_amount"></span></th>
-                            <th class="text-right sortable" onclick="pbCustSort('pbAmount')">페이백금액 <span class="sort-indicator" id="pbcs_pbAmount"></span></th>
-                            <th class="text-center sortable" onclick="pbCustSort('contractDay')">약정일 <span class="sort-indicator" id="pbcs_contractDay"></span></th>
-                            <th class="sortable" onclick="pbCustSort('type')">회원구분 <span class="sort-indicator" id="pbcs_type"></span></th>
-                            <th class="sortable" onclick="pbCustSort('supplier')">납품처명 <span class="sort-indicator" id="pbcs_supplier"></span></th>
-                            <th class="sortable" onclick="pbCustSort('bizNo')">사업자번호 <span class="sort-indicator" id="pbcs_bizNo"></span></th>
-                            <th class="sortable" onclick="pbCustSort('region')">지역 <span class="sort-indicator" id="pbcs_region"></span></th>
-                            <th class="sortable" onclick="pbCustSort('manager')">영업대표 <span class="sort-indicator" id="pbcs_manager"></span></th>
-                            <th class="text-center editable-only">관리</th>
-                        </tr></thead>
-                        <tbody id="pbCustBody"></tbody>
-                    </table></div>
+                    <h3>
+                        <span>페이백 고객 세부정보 내역</span>
+                        <div class="card-actions">
+                            <div class="menu-wrap">
+                                <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="colvisOpen('pbCustomer', this, event)">⚙ 열 선택 ▾</button>
+                                <div class="menu-pop" id="colmenu-pbCustomer" onclick="event.stopPropagation()"></div>
+                            </div>
+                            <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="pbRemoveSelected()">삭제</button>
+                            <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="pbCustExcel()">엑셀 다운로드</button>
+                        </div>
+                    </h3>
+                    <div class="table-container">
+                        <table id="pbCustTable">
+                            <thead><tr>
+                                <th class="text-center" style="width:40px;"><input type="checkbox" id="selectAllPb" onclick="document.querySelectorAll('#pbCustBody .pb-check').forEach(c => c.checked = this.checked)" /></th>
+                                <th class="text-center sortable" onclick="pbCustSort('idx')">NO. <span class="sort-indicator" id="pbcs_idx"></span></th>
+                                <th class="sortable" onclick="pbCustSort('agencyName')">대리점명 <span class="sort-indicator" id="pbcs_agencyName"></span></th>
+                                <th class="sortable" onclick="pbCustSort('no')">회원번호 <span class="sort-indicator" id="pbcs_no"></span></th>
+                                <th class="sortable" onclick="pbCustSort('name')">회원명 <span class="sort-indicator" id="pbcs_name"></span></th>
+                                <th class="sortable" onclick="pbCustSort('phone')">납부자 휴대전화 <span class="sort-indicator" id="pbcs_phone"></span></th>
+                                <th class="sortable" onclick="pbCustSort('status')">계약상태<br><span style="font-size:10px; font-weight:normal; color:#64748b;">(청구시작일)</span> <span class="sort-indicator" id="pbcs_status"></span></th>
+                                <th class="text-right sortable" onclick="pbCustSort('amount')">상품금액 <span class="sort-indicator" id="pbcs_amount"></span></th>
+                                <th class="text-right sortable" onclick="pbCustSort('pbAmount')">페이백금액 <span class="sort-indicator" id="pbcs_pbAmount"></span></th>
+                                <th class="text-center sortable" onclick="pbCustSort('contractDay')">약정일 <span class="sort-indicator" id="pbcs_contractDay"></span></th>
+                                <th class="sortable" onclick="pbCustSort('type')">회원구분 <span class="sort-indicator" id="pbcs_type"></span></th>
+                                <th class="sortable" onclick="pbCustSort('supplier')">납품처명 <span class="sort-indicator" id="pbcs_supplier"></span></th>
+                                <th class="sortable" onclick="pbCustSort('bizNo')">사업자번호 <span class="sort-indicator" id="pbcs_bizNo"></span></th>
+                                <th class="sortable" onclick="pbCustSort('region')">지역 <span class="sort-indicator" id="pbcs_region"></span></th>
+                                <th class="sortable" onclick="pbCustSort('manager')">영업대표 <span class="sort-indicator" id="pbcs_manager"></span></th>
+                                <th class="text-center">서류등록</th>
+                                <th class="text-center">상담내역</th>
+                            </tr></thead>
+                            <tbody id="pbCustBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -5770,14 +5800,35 @@
             else pbCustSortState = { key: key, asc: true };
             renderPaybackCustomer();
         }
-        function pbCustRows() {
+        let pbCustStatus = 'ALL';
+        let pbCustFilter = { agency: 'ALL', supplier: 'ALL', manager: 'ALL' };
+        function pbSelectTab(v, el) {
+            pbCustStatus = v;
+            document.querySelectorAll('#view-paybackCustomer .status-tab').forEach(t => t.classList.remove('active'));
+            if (el) el.classList.add('active');
+            renderPaybackCustomer();
+        }
+        function pbResetFilter() {
+            pbCustFilter = { agency: 'ALL', supplier: 'ALL', manager: 'ALL' };
+            pbCustSortState = { key: '', asc: true };
+            pbSelectTab('ALL', document.querySelector('#view-paybackCustomer .status-tab[data-pbtab="ALL"]'));
+        }
+        function pbAllRows() {
             let rows = [];
             Object.keys(paybackMap).forEach(k => {
                 let c = pbCust(k); if (!c) return;
-                rows.push({ c: c, pb: paybackMap[k], agencyName: pbAgencyOf(c), no: c.no, name: c.name || '', phone: c.phone || '', status: c.status || '',
+                rows.push({ c: c, pb: paybackMap[k], idx: c.idx, agencyName: pbAgencyOf(c), no: c.no, name: c.name || '', phone: c.phone || '', status: c.status || '',
                     amount: Number(c.amount) || 0, pbAmount: Number(paybackMap[k].amount) || 0, contractDay: c.contractDay || '', type: c.type || '',
                     supplier: c.supplier || c.agency || '', bizNo: c.bizNo || '', region: custRegion(c) || '', manager: c.manager || '' });
             });
+            return rows;
+        }
+        function pbCustRows() {
+            let rows = pbAllRows().filter(r =>
+                (pbCustStatus === 'ALL' || r.status === pbCustStatus) &&
+                (pbCustFilter.agency === 'ALL' || r.agencyName === pbCustFilter.agency) &&
+                (pbCustFilter.supplier === 'ALL' || r.supplier === pbCustFilter.supplier) &&
+                (pbCustFilter.manager === 'ALL' || r.manager === pbCustFilter.manager));
             let sk = pbCustSortState.key;
             if (sk) {
                 let d = pbCustSortState.asc ? 1 : -1;
@@ -5789,41 +5840,66 @@
             }
             return rows;
         }
+        function pbFillSelect(id, label, vals, cur, key) {
+            let el = document.getElementById(id); if (!el) return;
+            vals = Array.from(new Set(vals.filter(v => v && v !== '-'))).sort((a, b) => a.localeCompare(b, 'ko'));
+            el.innerHTML = `<option value="ALL">${label}</option>` + vals.map(v => `<option value="${escHtml(v)}">${escHtml(v)}</option>`).join('');
+            if (cur !== 'ALL' && !vals.includes(cur)) { pbCustFilter[key] = 'ALL'; cur = 'ALL'; }
+            el.value = cur;
+        }
         function renderPaybackCustomer() {
+            let all = pbAllRows();
+            let set = (id, n) => { let e = document.getElementById(id); if (e) e.innerText = n + '명'; };
+            set('pb_tab_all', all.length); set('pb_tab_use', all.filter(r => r.status === '사용').length); set('pb_tab_stop', all.filter(r => r.status === '중지').length);
+            pbFillSelect('pbFAgency', '전체 대리점', all.map(r => r.agencyName), pbCustFilter.agency, 'agency');
+            pbFillSelect('pbFSupplier', '전체 납품처명', all.map(r => r.supplier), pbCustFilter.supplier, 'supplier');
+            pbFillSelect('pbFManager', '전체 영업대표', all.map(r => r.manager), pbCustFilter.manager, 'manager');
             let rows = pbCustRows();
             document.querySelectorAll('[id^="pbcs_"]').forEach(el => el.innerText = '');
             if (pbCustSortState.key) { let ind = document.getElementById('pbcs_' + pbCustSortState.key); if (ind) ind.innerText = pbCustSortState.asc ? ' ▲' : ' ▼'; }
-            document.getElementById('pbCustCount').innerText = `(총 ${rows.length}곳)`;
             let canEdit = vsCanEdit();
-            document.getElementById('pbCustBody').innerHTML = rows.length ? rows.map((r, i) => {
+            let won = n => (n && n > 0) ? `${Math.round(n).toLocaleString()} 원` : '-';
+            document.getElementById('pbCustBody').innerHTML = rows.length ? rows.map(r => {
                 let c = r.c;
                 let badge = c.status === '사용' ? '<span class="badge-status badge-use">사용</span>' : '<span class="badge-status badge-stop">' + escHtml(c.status || '-') + '</span>';
-                let cd = c.contractDay ? (String(c.contractDay).replace(/일$/, '') + '일') : '-';
-                return `<tr>
-                    <td class="text-center">${i + 1}</td>
-                    <td style="font-weight:600;">${escHtml(r.agencyName)}</td>
-                    <td class="clickable-cell" onclick="openDetailModal(${c.idx})" style="color:#2563eb; text-decoration:underline;">${escHtml(c.no)}</td>
-                    <td>${escHtml(r.name)}</td>
+                let pbCell = canEdit
+                    ? `<span style="display:inline-flex; align-items:center; gap:4px;" onclick="event.stopPropagation()"><input type="text" value="${r.pbAmount.toLocaleString()}" onfocus="this.value=this.value.replace(/,/g,'')" onchange="pbSetAmount('${escHtml(c.no)}', this.value)" style="width:84px; text-align:right; padding:4px 6px; border:1px solid #bfdbfe; border-radius:6px; font-size:12.5px; font-weight:700; color:#2563eb; background:#f8fbff;"><span style="color:#2563eb; font-weight:600;">원</span><button class="btn-action" title="페이백 수수료 요율표대로 다시 계산" onclick="pbReapply('${escHtml(c.no)}')">↻</button></span>`
+                    : `<span style="font-weight:600; color:#2563eb;">${won(r.pbAmount)}</span>`;
+                return `<tr data-drawer="cust:${c.idx}" title="클릭하면 오른쪽에 상세 정보가 열립니다" style="cursor:pointer;">
+                    <td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="pb-check" value="${escHtml(c.no)}" /></td>
+                    <td class="text-center">${c.idx}</td>
+                    <td style="font-weight:600; color:#0f172a;">${escHtml(r.agencyName)}</td>
+                    <td class="clickable-cell" onclick="openDetailModal(${c.idx})" title="고객 세부내역 창 열기" style="color:#2563eb; text-decoration:underline;">${escHtml(c.no)}</td>
+                    <td><div>${escHtml(r.name)}</div></td>
                     <td>${escHtml(r.phone)}</td>
                     <td>${badge}<div class="sub-text">(${escHtml(c.startDate || '-')})</div></td>
-                    <td class="text-right" style="font-weight:700;">${vsNum(r.amount)}</td>
-                    <td class="text-right">${canEdit
-                        ? `<input type="text" value="${vsNum(r.pbAmount)}" onfocus="this.value=this.value.replace(/,/g,'')" onchange="pbSetAmount('${escHtml(c.no)}', this.value)" style="width:90px; text-align:right; padding:4px 6px; border:1px solid #93c5fd; border-radius:6px; font-weight:800; color:#1d4ed8;"> <button class="btn-action" title="페이백 수수료 요율표대로 다시 계산" onclick="pbReapply('${escHtml(c.no)}')">↻</button>`
-                        : `<strong style="color:#1d4ed8;">${vsNum(r.pbAmount)}</strong>`}</td>
-                    <td class="text-center">${cd}</td>
+                    <td class="text-right" style="font-weight:700;">${won(r.amount)}</td>
+                    <td class="text-right">${pbCell}</td>
+                    <td class="text-center" style="font-weight:600; color:#1e293b;">${escHtml(r.contractDay || '-')}</td>
                     <td>${escHtml(r.type)}</td>
                     <td>${escHtml(r.supplier || '-')}</td>
                     <td>${escHtml(r.bizNo || '-')}</td>
                     <td>${escHtml(r.region || '-')}</td>
                     <td>${escHtml(r.manager || '-')}</td>
-                    <td class="text-center editable-only"><button class="btn-action" style="color:#dc2626;" onclick="pbRemoveStore('${escHtml(c.no)}')">제외</button></td>
+                    <td class="text-center" onclick="event.stopPropagation()"><button class="btn-action" onclick="openDocModal('${escHtml(c.no)}')">서류등록</button></td>
+                    <td class="text-center" onclick="event.stopPropagation()"><button class="btn-action" onclick="openCounselModal('${escHtml(c.no)}')">상담내역</button></td>
                 </tr>`;
-            }).join('') : '<tr><td colspan="15" style="text-align:center; color:#94a3b8; padding:30px;">페이백 매장이 없습니다. 위 검색창에서 회원번호 또는 회원명을 검색해 추가하세요.</td></tr>';
+            }).join('') : '<tr><td colspan="17" style="text-align:center; color:#94a3b8; padding:30px;">페이백 매장이 없습니다. 위 검색창에서 회원번호 또는 회원명을 검색해 추가하세요.</td></tr>';
+            let m = document.getElementById('selectAllPb'); if (m) m.checked = false;
+        }
+        function pbRemoveSelected() {
+            if (!vsCanEdit()) return;
+            let ids = Array.from(document.querySelectorAll('#pbCustBody .pb-check:checked')).map(c => c.value);
+            if (!ids.length) { alert('페이백 대상에서 제외할 매장을 선택해주세요.'); return; }
+            if (!confirm(`선택한 ${ids.length}개 매장을 페이백 대상에서 제외할까요?\n(고객관리 데이터는 그대로 유지됩니다)`)) return;
+            ids.forEach(n => { delete paybackMap[normalizeMemberNo(n)]; });
+            saveLocalStorage(); syncToFirebase(); renderPaybackCustomer();
         }
         function pbCustExcel() {
-            let rows = pbCustRows();
+            let sel = Array.from(document.querySelectorAll('#pbCustBody .pb-check:checked')).map(c => normalizeMemberNo(c.value));
+            let rows = pbCustRows(); if (sel.length) rows = rows.filter(r => sel.includes(normalizeMemberNo(r.c.no)));
             if (!rows.length) { alert('다운로드할 페이백 매장이 없습니다.'); return; }
-            let data = rows.map((r, i) => ({ 'NO.': i + 1, '대리점명': r.agencyName, '회원번호': r.c.no, '회원명': r.name, '납부자 휴대전화': r.phone, '계약상태': r.status, '청구시작일': r.c.startDate || '', '상품금액': r.amount, '페이백금액': r.pbAmount, '약정일': r.contractDay, '회원구분': r.type, '납품처명': r.supplier, '사업자번호': r.bizNo, '지역': r.region, '영업대표': r.manager }));
+            let data = rows.map(r => ({ 'NO.': r.c.idx, '대리점명': r.agencyName, '회원번호': r.c.no, '회원명': r.name, '납부자 휴대전화': r.phone, '계약상태': r.status, '청구시작일': r.c.startDate || '', '상품금액': r.amount, '페이백금액': r.pbAmount, '약정일': r.contractDay, '회원구분': r.type, '납품처명': r.supplier, '사업자번호': r.bizNo, '지역': r.region, '영업대표': r.manager }));
             let ws = XLSX.utils.json_to_sheet(data), wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, '페이백 고객관리');
             XLSX.writeFile(wb, '페이백_고객관리.xlsx');
@@ -6193,6 +6269,9 @@
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호', '세금계산서 담당'] },
             aiCustomer: { table: 'aiCustomerTable', title: 'AI스캐너 고객관리',
                 cols: ['', 'NO.', '엑셀명', '대리점명', 'Viscovery명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '수량', 'Viscovery수수료', '영업수수료', '납품처명', '사업자번호', '지역', '영업대표', '관련서류', '상담내역'],
+                hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호'] },
+            pbCustomer: { table: 'pbCustTable', title: '페이백 고객관리',
+                cols: ['', 'NO.', '대리점명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '페이백금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '서류등록', '상담내역'],
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호'] },
             agency: { table: 'agencyTable', title: '대리점 관리',
                 cols: ['', 'NO.', '사업자번호', '대리점명', '지역', '주소지', '연결 매장수', '세금계산서 담당자명', '담당자 전화번호', '세금계산서 수신 이메일', '비고', '관리'],
