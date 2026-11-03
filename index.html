@@ -1290,6 +1290,8 @@
                             <button type="button" class="btn btn-outline" id="payOpenBtn" style="font-size:12px; padding:5px 10px; white-space:nowrap; display:none; color:#dc2626; border-color:#fca5a5;" onclick="payOpenMonth()">🔓 마감 해제</button>
                             <button type="button" class="btn btn-outline" style="font-size:12px; padding:5px 10px; white-space:nowrap;" onclick="payOpenHistory()">🕘 마감 이력</button>
                         </div>
+                    </div>
+                    <div class="filter-dropdown-row" style="margin-top:8px;">
                         <div class="filter-group">
                             <label>납품처명:</label>
                             <select id="payFilterSupplierSelect" class="filter-select" onchange="filterPaymentTable()">
@@ -1314,6 +1316,7 @@
                                 <option value="ALL">전체 (완납/미납)</option>
                                 <option value="UNPAID">미납 있음 (미납 > 0)</option>
                                 <option value="PAID">완납 (미납 = 0)</option>
+                                <option value="OVER">과입금 있음</option>
                             </select>
                         </div>
                         <div>
@@ -1353,6 +1356,11 @@
                         <div class="summary-total-item">
                             <span class="summary-total-label">총 미납금액</span>
                             <span class="summary-total-value" id="paySum_unpaid" style="color:#dc2626;">0 원</span>
+                        </div>
+                        <div class="summary-total-divider"></div>
+                        <div class="summary-total-item">
+                            <span class="summary-total-label">총 과입금액</span>
+                            <span class="summary-total-value" id="paySum_over" style="color:#2563eb;">0 원</span>
                         </div>
                     </div>
 
@@ -2519,7 +2527,7 @@
                     }
 
                     let addCount = 0;
-                    let updateCount = 0, skipClosedB = 0, skipMonthsB = [];
+                    let updateCount = 0, skipClosedB = 0, skipMonthsB = [], skipPastB = 0;
 
                     json.forEach((row, rIdx) => {
                         let memberNo = normalizeMemberNo(row['회원번호'] || row['회원 번호'] || '');
@@ -2534,6 +2542,10 @@
                         let normalizedMonth = normalizeYM(rawMonth);
                         if (!normalizedMonth) normalizedMonth = '2026-10';
                         if (payIsClosed(normalizedMonth)) { skipClosedB++; skipMonthsB.push(normalizedMonth); return; }   // 마감된 달 청구는 변경 불가
+                        if (billIsPast(normalizedMonth)) {                                                              // 지난 달 청구는 관리자만 (소급 등록 이력)
+                            if (!vsIsAdmin()) { skipPastB++; return; }
+                            logEditRecord('PAY', memberNo, `[소급 등록] ${normalizedMonth}월 청구 ${amount.toLocaleString()}원 (엑셀 업로드, 지난 달 청구를 관리자가 등록)`);
+                        }
 
                         let existingIndex = billingDataList.findIndex(b => 
                             normalizeMemberNo(b.no) === memberNo && 
@@ -2579,7 +2591,7 @@
                     renderPaymentTable();
                     renderDashboardCharts();
 
-                    alert(`[청구 엑셀 업로드 완료]\n총 ${addCount + updateCount}건 반영 (신규: ${addCount}건 / 갱신: ${updateCount}건)` + (skipClosedB ? `\n\n※ 수금이 마감된 달(${Array.from(new Set(skipMonthsB)).sort().map(m => m.replace('-', '.')).join(', ')})의 ${skipClosedB}건은 반영하지 않았습니다.` : ''));
+                    alert(`[청구 엑셀 업로드 완료]\n총 ${addCount + updateCount}건 반영 (신규: ${addCount}건 / 갱신: ${updateCount}건)` + (skipClosedB ? `\n\n※ 수금이 마감된 달(${Array.from(new Set(skipMonthsB)).sort().map(m => m.replace('-', '.')).join(', ')})의 ${skipClosedB}건은 반영하지 않았습니다.` : '') + (skipPastB ? `\n\n※ 지난 달 청구 ${skipPastB}건은 관리자만 등록할 수 있어 반영하지 않았습니다.` : ''));
                 } catch (err) {
                     console.error("청구 엑셀 파싱 에러:", err);
                     alert("청구 엑셀 파싱 오류: " + err.message);
@@ -3562,6 +3574,15 @@
             out.sort((a, b) => payNormDate(a.date).localeCompare(payNormDate(b.date)) || a.billMonth.localeCompare(b.billMonth));
             return out;
         }
+        /* 과입금: 이 달에 입금된 건 중 해당 청구월 청구금액을 넘게 입금된 금액 */
+        function payOverFor(no, M) {
+            let pMap = paymentDataMap[normalizeMemberNo(no)] || paymentDataMap[no] || {};
+            return payReceipts(no, M).reduce((a, r) => {
+                let bi = getBillingInfoForMonth(no, r.billMonth);
+                let bill = bi.amount !== null ? bi.amount : ((pMap[r.billMonth] || {}).amount || 0);
+                return a + Math.max(0, r.paid - bill);
+            }, 0);
+        }
         function payCashSum(no, M) { return payReceipts(no, M).reduce((a, r) => a + r.paid, 0); }
         function payUnpaidFor(no, M, bill) {
             let d = (paymentDataMap[normalizeMemberNo(no)] || paymentDataMap[no] || {})[M];
@@ -3571,7 +3592,37 @@
         function payReceiptsHtml(no, M, withDelete) {
             let rs = payReceipts(no, M);
             if (!rs.length) return '';
-            return rs.map(r => `<div style="white-space:nowrap; display:flex; justify-content:flex-end; align-items:center; gap:6px;"><span class="date-amt-box"><span class="dt-part">${payNormDate(r.date)}</span><span class="amt-part">${r.paid.toLocaleString()}</span></span>${r.billMonth !== M ? ` <span style="font-size:10px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:4px; padding:0 5px;">${parseInt(r.billMonth.split('-')[1])}월분</span>` : ''}${withDelete ? `<button type="button" class="btn-mini-x editable-only" title="수납내역 삭제" onclick="deleteSinglePaymentRecord('${normalizeMemberNo(no)}', '${r.billMonth}')">✕</button>` : ''}</div>`).join('');
+            let pMapR = paymentDataMap[normalizeMemberNo(no)] || paymentDataMap[no] || {};
+            return rs.map(r => {
+                let noBill = getBillingInfoForMonth(no, r.billMonth).amount === null && !((pMapR[r.billMonth] || {}).amount > 0);
+                let mm = parseInt(r.billMonth.split('-')[1]);
+                let tag = '';
+                if (noBill) tag = `<span class="editable-only" onclick="payQuickBill('${normalizeMemberNo(no)}', '${r.billMonth}', ${r.paid})" title="${mm}월 청구 내역이 없습니다. 눌러서 청구를 등록하세요" style="cursor:pointer; font-size:10px; font-weight:700; color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; border-radius:4px; padding:0 5px;">${r.billMonth !== M ? mm + '월분 ' : ''}청구없음 +</span>`;
+                else if (r.billMonth !== M) tag = `<span style="font-size:10px; font-weight:700; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:4px; padding:0 5px;">${mm}월분</span>`;
+                return `<div style="white-space:nowrap; display:flex; justify-content:flex-end; align-items:center; gap:8px; line-height:1.7;"><span style="display:inline-block; min-width:42px; text-align:right;">${tag}</span><span style="display:inline-block; width:76px; text-align:right; color:#64748b; font-size:11.5px;">${payNormDate(r.date)}</span><span style="display:inline-block; width:64px; text-align:right; font-weight:700;">${r.paid.toLocaleString()}</span>${withDelete ? `<button type="button" class="btn-mini-x editable-only" title="수납내역 삭제" onclick="deleteSinglePaymentRecord('${normalizeMemberNo(no)}', '${r.billMonth}')">✕</button>` : ''}</div>`;
+            }).join('');
+        }
+        /* 8·9월처럼 ERP 도입 전이라 청구 내역이 없는 달: 수납 옆 '청구없음 +'을 누르면 청구 등록창이 열립니다 */
+        function payQuickBill(no, billMonth, paid) {
+            if (payClosedAlert([billMonth])) return;
+            let c = customerDataList.find(x => normalizeMemberNo(x.no) === normalizeMemberNo(no)) || {};
+            try { closeModal('paymentDetailModal'); } catch (e) {}
+            document.getElementById('b_no').value = no;
+            autoFillBillingName();
+            document.getElementById('b_month').value = billMonth;
+            document.getElementById('b_amount').value = paid;
+            document.getElementById('b_pay_date').value = '';
+            document.getElementById('b_pay_method').value = 'CMS';
+            openModal('billingModal');
+        }
+        /* 지난 달 청구는 관리자만 (일반 계정은 당월 청구만). 관리자의 지난 달 청구 등록은 '소급 등록'으로 이력에 남김 */
+        function billIsPast(ym) { return /^\d{4}-\d{2}$/.test(ym) && ym < vsTodayYm(); }
+        function billPastBlocked(months) {
+            if (vsIsAdmin()) return false;
+            let list = Array.from(new Set(months.filter(billIsPast))).sort();
+            if (!list.length) return false;
+            alert(`지난 달(${list.map(m => m.replace('-', '.')).join(', ')}) 청구는 관리자만 등록·수정·삭제할 수 있습니다.\n관리자에게 요청해 주세요.`);
+            return true;
         }
         function payIsClosed(ym) { return !!(vsSettle && vsSettle.payClosed && vsSettle.payClosed[ym]); }
         function payClosedAlert(months) {
@@ -3693,6 +3744,8 @@
                 let unpaidDisplay = (unpaidVal > 0) 
                     ? `<span style="color:#dc2626; font-weight:600; font-size:11.5px;">${unpaidVal.toLocaleString()}</span>` 
                     : '';
+                let overM = payOverFor(key, monthKey);
+                if (overM > 0) unpaidDisplay += (unpaidDisplay ? '<br>' : '') + `<span style="color:#2563eb; font-weight:600; font-size:11.5px;">과입 +${overM.toLocaleString()}</span>`;
 
                 let rowMemo = (m === 10 && memoContent) ? memoContent : '';
 
@@ -3720,7 +3773,7 @@
             }
 
             let targetBill = billingDataList[bIndex];
-            if (payClosedAlert([monthKey])) return;
+            if (payClosedAlert([monthKey]) || billPastBlocked([monthKey])) return;
             if (!confirm(`[${monthKey}월] 청구 내역(${targetBill.amount.toLocaleString()}원)을 삭제하시겠습니까?`)) {
                 return;
             }
@@ -5848,7 +5901,8 @@
                 let unpaidVal = payUnpaidFor(item.no, curMonthVal, bAmt);
 
                 let matchesUnpaid = true;
-                if (selectedUnpaid === 'UNPAID') matchesUnpaid = unpaidVal > 0;
+                if (selectedUnpaid === 'OVER') matchesUnpaid = payOverFor(item.no, curMonthVal) > 0;
+                else if (selectedUnpaid === 'UNPAID') matchesUnpaid = unpaidVal > 0;
                 else if (selectedUnpaid === 'PAID') matchesUnpaid = unpaidVal === 0;
 
                 return matchesSearch && matchesStatus && matchesSupplier && matchesBizNo && matchesManager && matchesUnpaid;
@@ -5863,7 +5917,7 @@
 
         function renderPaymentTableContent(dataList, curMonthVal) {
             let tbody = "";
-            let sums = { bill: 0, paid: 0, unpaid: 0 };
+            let sums = { bill: 0, paid: 0, unpaid: 0, over: 0 };
             let count = dataList.length;
 
             dataList.forEach(item => {
@@ -5875,9 +5929,11 @@
                 let pAmt = payCashSum(item.no, curMonthVal);          // 정산일자가 이 달인 입금 합계
                 let unpaidVal = payUnpaidFor(item.no, curMonthVal, bAmt);
 
+                let overVal = payOverFor(item.no, curMonthVal);
                 sums.bill += bAmt;
                 sums.paid += pAmt;
                 sums.unpaid += unpaidVal;
+                sums.over += overVal;
 
                 let billDisplay = '-';
                 if (bAmt > 0) {
@@ -5890,6 +5946,7 @@
                 let unpaidDisplay = (unpaidVal > 0)
                     ? `<span style="color:#dc2626; font-weight:700; font-size:12px;">${unpaidVal.toLocaleString()}</span>`
                     : '-';
+                if (overVal > 0) unpaidDisplay = (unpaidVal > 0 ? unpaidDisplay + '<br>' : '') + `<span style="color:#2563eb; font-weight:700; font-size:12px;" title="청구금액보다 더 입금됨">과입 +${overVal.toLocaleString()}</span>`;
 
                 let statusBadge = item.status === '사용' ? '<span class="badge-status badge-use">사용</span>' : '<span class="badge-status badge-stop">'+item.status+'</span>';
 
@@ -5916,6 +5973,8 @@
                 document.getElementById('paySum_bill').innerText = sums.bill.toLocaleString() + ' 원';
                 document.getElementById('paySum_paid').innerText = sums.paid.toLocaleString() + ' 원';
                 document.getElementById('paySum_unpaid').innerText = sums.unpaid.toLocaleString() + ' 원';
+                let ov = document.getElementById('paySum_over');
+                if (ov) ov.innerText = sums.over.toLocaleString() + ' 원';
             }
         }
 
@@ -6768,6 +6827,8 @@
             let memberNo = normalizeMemberNo(no);
             let normalizedMonth = normalizeYM(month);
             if (payClosedAlert([normalizedMonth])) return;
+            if (billPastBlocked([normalizedMonth])) return;
+            if (billIsPast(normalizedMonth)) logEditRecord('PAY', memberNo, `[소급 등록] ${normalizedMonth}월 청구 ${amount.toLocaleString()}원 (지난 달 청구를 관리자가 등록)`);
 
             billingDataList.unshift({
                 idx: Date.now(),
@@ -6808,9 +6869,10 @@
                 return;
             }
 
-            if (!confirm(`선택한 ${selectedIdxs.length}건의 청구 내역을 삭제하시겠습니까?\n(수금관리에 연결된 청구/수금 데이터도 함께 정리됩니다)`)) return;
-
             let targetItems = billingDataList.filter(b => selectedIdxs.includes(b.idx));
+            let tMonths = targetItems.map(b => normalizeYM(b.month));
+            if (payClosedAlert(tMonths) || billPastBlocked(tMonths)) return;
+            if (!confirm(`선택한 ${selectedIdxs.length}건의 청구 내역을 삭제하시겠습니까?\n(수금관리에 연결된 청구/수금 데이터도 함께 정리됩니다)`)) return;
 
             targetItems.forEach(b => {
                 let mNo = normalizeMemberNo(b.no);
@@ -7421,6 +7483,7 @@
                     '청구금액': bInfo.amount !== null ? bInfo.amount : (curPay.amount || '-'),
                     '결제일': bInfo.payDate || curPay.billPayDate || '-',
                     '수납금액': payCashSum(item.no, curMonthVal),
+                    '과입금액': payOverFor(item.no, curMonthVal),
                     '정산일': payReceipts(item.no, curMonthVal).map(r => r.date + (r.billMonth !== curMonthVal ? `(${parseInt(r.billMonth.split('-')[1])}월분)` : '')).join(', ') || '-',
                     '연간총수납금액': summary.paid,
                     '연간미납금액': summary.unpaid,
