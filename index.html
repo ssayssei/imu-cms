@@ -6283,7 +6283,7 @@
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호'] },
             agency: { table: 'agencyTable', title: '대리점 관리',
                 cols: ['', 'NO.', '사업자번호', '대리점명', '지역', '주소지', '연결 매장수', '세금계산서 담당자명', '담당자 전화번호', '세금계산서 수신 이메일', '비고', '관리'],
-                hidden: ['주소지', '담당자 전화번호', '비고'] }
+                hidden: ['주소지', '비고'] }
         };
         function colvisLoad(key) {
             try { let v = JSON.parse(localStorage.getItem('cms_cols_' + key)); if (Array.isArray(v)) return v; } catch (e) {}
@@ -6324,6 +6324,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             // 고객관리 기본 열 변경(회원구분·납품처명·사업자번호 표시)을 한 번만 기존 저장 설정에 덮어 적용
             try { if (!localStorage.getItem('cms_cols_customer_v4')) { localStorage.removeItem('cms_cols_customer'); localStorage.setItem('cms_cols_customer_v4', '1'); } } catch (e) {}
+            try { if (!localStorage.getItem('cms_cols_agency_v2')) { localStorage.removeItem('cms_cols_agency'); localStorage.setItem('cms_cols_agency_v2', '1'); } } catch (e) {}   // 대리점 관리: 담당자 전화번호 기본 표시
             Object.keys(COLVIS).forEach(colvisApply);
         });
 
