@@ -2376,8 +2376,20 @@
             alert("선택하신 회차의 대량등록 데이터가 삭제되었습니다.");
         }
 
+        /* 엑셀 날짜 일련번호(예: 46327 = 2026-11-01) 또는 Date → 'YYYY-MM-DD' (아니면 빈 문자열) */
+        function xlSerialToYMD(v) {
+            if (v instanceof Date && !isNaN(v)) return v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0') + '-' + String(v.getDate()).padStart(2, '0');
+            let t = String(v === null || v === undefined ? '' : v).trim();
+            if (!/^\d{5}(\.\d+)?$/.test(t)) return '';
+            let n = Math.floor(Number(t));
+            if (n < 20000 || n > 80000) return '';
+            let d = new Date(Date.UTC(1899, 11, 30) + n * 86400000);
+            return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+        }
         function normalizeYM(val) {
             if (!val) return '';
+            let ser = xlSerialToYMD(val);
+            if (ser) return ser.slice(0, 7);
             let s = String(val).trim().replace(/[\/\.]/g, '-');
             let parts = s.split('-');
             if (parts.length >= 2) {
@@ -2388,6 +2400,23 @@
                 }
             }
             return s;
+        }
+
+        /* 이미 업로드되어 저장된 '46327' 같은 청구월을 '2026-11'로 바로잡음 */
+        function fixSerialMonths() {
+            let fixed = 0;
+            billingDataList.forEach(b => { let y = xlSerialToYMD(b.month); if (y) { b.month = y.slice(0, 7); fixed++; } });
+            Object.keys(paymentDataMap).forEach(no => {
+                let m = paymentDataMap[no] || {};
+                Object.keys(m).forEach(k => {
+                    let y = xlSerialToYMD(k); if (!y) return;
+                    let nk = y.slice(0, 7);
+                    if (!m[nk] || !(m[nk].paid > 0)) m[nk] = { ...(m[nk] || {}), ...m[k] };
+                    delete m[k]; fixed++;
+                });
+                Object.keys(m).forEach(k => { let d = m[k]; if (d && typeof d === 'object') ['paidDate', 'billPayDate'].forEach(f => { let y = xlSerialToYMD(d[f]); if (y) { d[f] = y; fixed++; } }); });
+            });
+            return fixed;
         }
 
         function parseCleanInt(val, defaultVal = 0) {
@@ -2640,7 +2669,7 @@
                         if (!normalizedMonth) normalizedMonth = '2026-10';
 
                         let paidAmt = parseCleanInt(row['수납금액'] || row['금액'], 0);
-                        let settleDate = String(row['정산일'] || row['정산일자'] || '').trim().replace(/[\/\.]/g, '-');
+                        let settleDate = (xlSerialToYMD(row['정산일'] || row['정산일자']) || String(row['정산일'] || row['정산일자'] || '').trim()).replace(/[\/\.]/g, '-');
 
                         if (!paymentDataMap[memberNo]) paymentDataMap[memberNo] = {};
                         {   // 마감된 달(정산일자 기준)은 건너뜀
@@ -2715,7 +2744,7 @@
                         let memberName = String(row['회원명'] || row['가맹점명'] || row['고객명'] || '').trim();
                         let rawMonth = String(row['청구월'] || row['청구 연월'] || '').trim();
                         let amount = parseCleanInt(row['청구금액'] || row['금액'], 0);
-                        let payDate = String(row['결제일(납부기간)'] || row['결제일'] || '').trim().replace(/[\/\.]/g, '-');
+                        let payDate = (xlSerialToYMD(row['결제일(납부기간)'] || row['결제일']) || String(row['결제일(납부기간)'] || row['결제일'] || '').trim()).replace(/[\/\.]/g, '-');
                         let payMethod = String(row['결제수단'] || 'CMS').trim();
 
                         if (!memberNo && !memberName) return;
@@ -2911,7 +2940,7 @@
                         let status = String(row['계약상태'] || '사용').trim() || '사용';
                         let amount = parseCleanInt(row['상품금액'] || row['금액'], 0);
                         let contractDay = String(row['약정일'] || row['약정 일자'] || '').trim();
-                        let startDate = String(row['청구시작일'] || row['시작일'] || '').trim().replace(/[\/\.]/g, '-');
+                        let startDate = (xlSerialToYMD(row['청구시작일'] || row['시작일']) || String(row['청구시작일'] || row['시작일'] || '').trim()).replace(/[\/\.]/g, '-');
                         let type = String(row['회원구분'] || row['구분'] || '미지정').trim();
 
                         let commission = parseCleanInt(row['영업수수료'], 0);
@@ -3206,6 +3235,7 @@
                 if (savedCust) customerDataList = JSON.parse(savedCust);
                 if (savedPay) paymentDataMap = JSON.parse(savedPay);
                 if (savedBill) billingDataList = JSON.parse(savedBill);
+                try { fixSerialMonths(); } catch (e) {}
                 if (savedUsers) userAccountsList = JSON.parse(savedUsers);
                 if (savedRates) commissionRateMap = JSON.parse(savedRates);
                 if (savedVisRates) viscoveryRateConfig = JSON.parse(savedVisRates);
@@ -3348,6 +3378,7 @@
                         paybackMap = data.paybackMap || paybackMap || {};
                         if (data.paybackRates) paybackRateConfig = data.paybackRates;
                         vsFbReady = true;
+                        try { if (fixSerialMonths() > 0) setTimeout(syncToFirebase, 800); } catch (e) {}
 
                         saveLocalStorage();
                         updateAuthUI();
