@@ -49,6 +49,7 @@
             align-items: center;
             z-index: 99999;
         }
+        #loginPageContainer.auth-pending { display: none !important; }
 
         .login-box-card {
             background-color: #222731;
@@ -380,7 +381,7 @@
 <div id="appLayout">
 
     <!-- 로그인 페이지 -->
-    <div id="loginPageContainer">
+    <div id="loginPageContainer" class="auth-pending">
         <div class="login-box-card">
             <div class="login-brand-head">CMS ERP System</div>
             <div class="login-sub-head">전사적 자원관리를 위한 통합 로그인 페이지</div>
@@ -3185,6 +3186,9 @@
         function bootAuth() {
             try {
                 firebase.auth().onAuthStateChanged(user => {
+                    window._authReady = true;
+                    const lp = document.getElementById('loginPageContainer');
+                    if (lp) lp.classList.remove('auth-pending');
                     if (user) {
                         if (window.startDbSync) window.startDbSync();
                         authResolveUser(false);
@@ -3195,6 +3199,8 @@
                 });
             } catch (e) {
                 console.warn('Firebase Auth 초기화 오류:', e);
+                const lp = document.getElementById('loginPageContainer');
+                if (lp) lp.classList.remove('auth-pending');
                 updateAuthUI();
             }
         }
@@ -3391,6 +3397,7 @@
                             if (srvUsers.length > 0) userAccountsList = srvUsers;
                         }
                         ensureValidUserList();
+                        billDedupe();
                         try { authResolveUser(true); } catch (e) { console.warn(e); }
                         custEditLogMap = data.custLogs || custEditLogMap;
                         payEditLogMap = data.payLogs || payEditLogMap;
@@ -3443,7 +3450,21 @@
             if (no) renderPaymentModalContent(no);
         }
 
+        // 같은 회원번호+청구월 중복 청구 제거 (첫 건만 유지)
+        function billDedupe() {
+            try {
+                const seen = new Set(); const out = [];
+                billingDataList.forEach(b => {
+                    const k = normalizeMemberNo(b.no) + '|' + normalizeYM(b.month);
+                    if (seen.has(k)) return;
+                    seen.add(k); out.push(b);
+                });
+                if (out.length !== billingDataList.length) billingDataList = out;
+            } catch (e) { console.warn('청구 중복 정리 실패', e); }
+        }
+
         function syncToFirebase() {
+            billDedupe();
             saveLocalStorage();
             try {
                 if (!firebase.auth().currentUser) return;   // 로그인 전에는 서버에 쓰지 않음
@@ -3468,6 +3489,7 @@
                     paybackRates: JSON.parse(JSON.stringify(paybackRateConfig))
                 }).catch(err => {
                     console.warn("Firebase set write error:", err);
+                    if (!window._fbErrShown) { window._fbErrShown = true; alert("서버 저장에 실패했습니다. 변경 내용이 저장되지 않았을 수 있습니다.\n(" + (err && err.code || err) + ")"); }
                 });
             } catch (err) {
                 console.warn("Firebase sync error:", err);
