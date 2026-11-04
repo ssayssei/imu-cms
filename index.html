@@ -6274,7 +6274,7 @@
         const COLVIS = {
             customer: { table: 'customerTable', title: '고객관리',
                 cols: ['', 'NO.', '대리점명', '대리점 사업자번호', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '세금계산서 담당', '관련서류', '상담내역'],
-                hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호', '세금계산서 담당'] },
+                hidden: ['납부자 휴대전화', '약정일', '사업자번호'] },   // 회원구분·납품처명·세금계산서 담당은 기본 표시
             aiCustomer: { table: 'aiCustomerTable', title: 'AI스캐너 고객관리',
                 cols: ['', 'NO.', '엑셀명', '대리점명', 'Viscovery명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '수량', 'Viscovery수수료', '영업수수료', '납품처명', '사업자번호', '지역', '영업대표', '관련서류', '상담내역'],
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호'] },
@@ -6321,7 +6321,11 @@
                 if (m) b.firstElementChild.textContent = hidden.indexOf(c.cols[+m[1]]) >= 0 ? '☐' : '☑';
             });
         }
-        window.addEventListener('DOMContentLoaded', () => { Object.keys(COLVIS).forEach(colvisApply); });
+        window.addEventListener('DOMContentLoaded', () => {
+            // 고객관리 기본 열 변경(회원구분·납품처명·세금계산서 담당 표시)을 한 번만 기존 저장 설정에 덮어 적용
+            try { if (!localStorage.getItem('cms_cols_customer_v2')) { localStorage.removeItem('cms_cols_customer'); localStorage.setItem('cms_cols_customer_v2', '1'); } } catch (e) {}
+            Object.keys(COLVIS).forEach(colvisApply);
+        });
 
         /* 드롭다운 메뉴(대량 작업 / 엑셀 등) */
         function toggleMenu(btn, ev) {
