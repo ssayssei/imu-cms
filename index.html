@@ -3247,7 +3247,7 @@
                 let savedBulkHistory = localStorage.getItem('cms_bulk_history');
                 if (savedBulkHistory) bulkUploadHistory = JSON.parse(savedBulkHistory);
                 let savedAgencyDeleted = localStorage.getItem('cms_agency_deleted');
-                if (savedAgencyDeleted) agencyDeletedKeys = JSON.parse(savedAgencyDeleted);
+                if (savedAgencyDeleted) agencyDeletedKeys = JSON.parse(savedAgencyDeleted) || {};
                 let savedVsSettle = localStorage.getItem('cms_vs_settle');
                 if (savedVsSettle) vsSettle = JSON.parse(savedVsSettle);
                 let savedPayback = localStorage.getItem('cms_payback');
@@ -3373,7 +3373,8 @@
                         uploadBatchList = data.batches || uploadBatchList;
                         deletedCustomerTrashList = data.trash || deletedCustomerTrashList;
                         bulkUploadHistory = data.bulkHistory ? toArr(data.bulkHistory) : bulkUploadHistory;
-                        agencyDeletedKeys = data.agencyDeleted || agencyDeletedKeys;
+                        agencyDeletedKeys = { ...(agencyDeletedKeys || {}), ...(data.agencyDeleted || {}) };   // 내 삭제 기록도 유지(합집합)
+                        try { if (agencyPurgeDeleted() > 0) setTimeout(syncToFirebase, 800); } catch (e) {}
                         if (data.vsSettle) { vsSettle = data.vsSettle; vsNormalize(); }
                         paybackMap = data.paybackMap || paybackMap || {};
                         if (data.paybackRates) paybackRateConfig = data.paybackRates;
@@ -6890,6 +6891,7 @@
 
         function renderAgencyContactTable() {
             agencyFixSwapped();
+            agencyPurgeDeleted();
             let tbody = '';
             let query = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase().trim() : '';
 
@@ -7005,14 +7007,29 @@
             updateAgencyQuickSelectOptions();
         }
 
+        /* 삭제한 대리점이 (서버 병합·다른 PC의 옛 데이터·자동 취합으로) 다시 살아나지 않도록 정리. 지운 개수 반환 */
+        function agencyPurgeDeleted() {
+            let n = 0;
+            Object.keys(taxContactMap).forEach(k => {
+                let a = taxContactMap[k] || {};
+                if (agencyDeletedKeys[k] || (a.cleanKey && agencyDeletedKeys[a.cleanKey]) || agencyDeletedKeys[cleanBizNo(a.bizNo)]) { delete taxContactMap[k]; n++; }
+            });
+            return n;
+        }
+        /* 대리점 한 곳 삭제: 저장 키가 달라도 같은 사업자번호의 항목을 모두 찾아 지우고 삭제 기록을 남김 */
+        function agencyDropKey(ck) {
+            let keys = new Set([ck]);
+            Object.keys(taxContactMap).forEach(k => { let a = taxContactMap[k] || {}; if (k === ck || a.cleanKey === ck || cleanBizNo(a.bizNo) === ck) { keys.add(k); if (a.cleanKey) keys.add(a.cleanKey); } });
+            keys.forEach(k => { if (k) { delete taxContactMap[k]; agencyDeletedKeys[k] = true; } });
+        }
+
         function deleteAgencyItem(cleanKey) {
-            let item = taxContactMap[cleanKey];
+            let item = taxContactMap[cleanKey] || Object.values(taxContactMap).find(a => a && (a.cleanKey === cleanKey || cleanBizNo(a.bizNo) === cleanKey));
             if (!item) return;
 
             if (!confirm(`[${item.agencyName || item.bizNo}] 대리점을 삭제하시겠습니까?\n(연결된 가맹점 매장은 유지되지만 대리점 연동 정보가 해제됩니다)`)) return;
 
-            delete taxContactMap[cleanKey];
-            agencyDeletedKeys[cleanKey] = true;
+            agencyDropKey(cleanKey);
             saveLocalStorage();
             syncToFirebase();
             renderAgencyContactTable();
@@ -7025,10 +7042,7 @@
         }
 
         function removeAgencyKeys(keys) {
-            keys.forEach(k => {
-                delete taxContactMap[k];
-                agencyDeletedKeys[k] = true;
-            });
+            keys.forEach(k => agencyDropKey(k));
             saveLocalStorage();
             syncToFirebase();
             renderAgencyContactTable();
