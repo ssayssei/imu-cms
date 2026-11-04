@@ -1322,7 +1322,7 @@
                     <div class="filter-dropdown-row">
                         <div class="filter-group">
                             <label>조회 연월:</label>
-                            <select id="paySelectMonth" class="filter-select" onchange="filterPaymentTable()">
+                            <select id="paySelectMonth" class="filter-select" onchange="payMonthPicked = true; filterPaymentTable()">
                                 <option value="2026-10">2026년 10월</option>
                             </select>
                         </div>
@@ -1436,7 +1436,7 @@
                         <span>월별 청구 내역 관리</span>
                         <div class="card-actions">
                             <label style="font-size:12px; font-weight:700;">조회 연월:</label>
-                            <select id="billSelectMonth" class="filter-select" style="width:130px;" onchange="renderBillingTable()">
+                            <select id="billSelectMonth" class="filter-select" style="width:130px;" onchange="billMonthPicked = true; renderBillingTable()">
                                 <option value="ALL">전체 연월</option>
                             </select>
                             <button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openModal('billingModal')">등록</button>
@@ -3044,6 +3044,7 @@
         }
 
         /* [요청 반영: 수금관리 조회 연월 드롭다운 자동 갱신 및 연동] */
+        let payMonthPicked = false;   // 사용자가 조회 연월을 직접 고른 뒤에는 그 선택을 유지, 아니면 항상 최신월
         function updatePaymentMonthSelect() {
             let selectEl = document.getElementById('paySelectMonth');
             if (!selectEl) return;
@@ -3077,15 +3078,14 @@
 
             selectEl.innerHTML = html;
 
-            if (currentVal && sortedMonths.includes(currentVal)) {
+            if (payMonthPicked && currentVal && sortedMonths.includes(currentVal)) {
                 selectEl.value = currentVal;
-            } else if (sortedMonths.includes('2026-10')) {
-                selectEl.value = '2026-10';
             } else if (sortedMonths.length > 0) {
-                selectEl.value = sortedMonths[0];
+                selectEl.value = sortedMonths[0];   // 처음엔 가장 최신월
             }
         }
 
+        let billMonthPicked = false;   // 직접 고른 뒤에는 선택 유지, 처음엔 최신월
         function updateBillingMonthSelect() {
             let selectEl = document.getElementById('billSelectMonth');
             if (!selectEl) return;
@@ -3111,10 +3111,10 @@
 
             selectEl.innerHTML = html;
 
-            if (currentVal && (currentVal === 'ALL' || sortedMonths.includes(normalizeYM(currentVal)))) {
+            if (billMonthPicked && currentVal && (currentVal === 'ALL' || sortedMonths.includes(normalizeYM(currentVal)))) {
                 selectEl.value = currentVal === 'ALL' ? 'ALL' : normalizeYM(currentVal);
             } else {
-                selectEl.value = 'ALL';
+                selectEl.value = sortedMonths.length ? sortedMonths[0] : 'ALL';   // 처음엔 가장 최신월
             }
         }
 
@@ -4189,6 +4189,15 @@
                 if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
             });
             if (!Array.isArray(vsSettle.confirmLog)) vsSettle.confirmLog = [];
+            // 이미 확정된 월은 '생성됨'으로 간주 (생성 기록이 없던 예전 확정분이 '미생성'으로 보이지 않게)
+            let g = vsSettle.generated;
+            let mark = (ym, type, info) => {
+                if (!/^\d{4}-\d{2}$/.test(ym)) return;
+                if (!g[ym]) g[ym] = {};
+                if (!g[ym][type]) g[ym][type] = { at: (info && info.at) || '', by: (info && info.by) || '', auto: false, backfill: true };
+            };
+            Object.keys(vsSettle.confirmed).forEach(ym => mark(ym, 'viscovery', vsSettle.confirmed[ym]));
+            Object.keys(vsSettle.commConfirmed).forEach(ym => mark(ym, 'commission', vsSettle.commConfirmed[ym]));
         }
         /* ===== 월별 정산 데이터 생성 ================================================
            vsSettle.generated[연월] = { viscovery:{at,by,auto}, commission:{...}, payback:{...} }
@@ -4232,6 +4241,7 @@
         function vsGenerateCancel(ym, type) {
             if (!vsIsAdmin()) { alert('관리자만 취소할 수 있습니다.'); return; }
             if (type === 'viscovery' && vsIsConfirmed(ym)) { alert('확정된 정산은 생성 취소할 수 없습니다. 먼저 확정을 해제해 주세요.'); return; }
+            if (type === 'commission' && vsSettle.commConfirmed && vsSettle.commConfirmed[ym]) { alert('확정된 정산은 생성 취소할 수 없습니다. 먼저 확정을 해제해 주세요.'); return; }
             let nm = (VS_GEN_TYPES.find(t => t.k === type) || {}).n;
             if (!confirm(`${vsMonthLabel(ym)} ${nm} 정산 월 생성을 취소할까요?\n(고객·수금 데이터는 바뀌지 않으며, 다시 생성할 수 있습니다)`)) return;
             if (vsSettle.generated[ym]) {
