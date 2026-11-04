@@ -3146,7 +3146,7 @@
         function authEmail(id) { return String(id).trim().toLowerCase() + AUTH_DOMAIN; }
         function authErrMsg(err) {
             const c = err && err.code || '';
-            if (c === 'auth/invalid-credential' || c === 'auth/user-not-found' || c === 'auth/wrong-password' || c === 'auth/invalid-email') return '아이디 또는 비밀번호가 올바르지 않습니다.';
+            if (c === 'auth/invalid-credential' || c === 'auth/invalid-login-credentials' || c === 'auth/user-not-found' || c === 'auth/wrong-password' || c === 'auth/invalid-email') return '아이디 또는 비밀번호가 올바르지 않습니다.';
             if (c === 'auth/too-many-requests') return '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.';
             if (c === 'auth/network-request-failed') return '네트워크 연결을 확인해 주세요.';
             if (c === 'auth/user-disabled') return '비활성화된 계정입니다. 관리자에게 문의하세요.';
@@ -8540,11 +8540,14 @@
             if (!userAdminOnly()) return;
             const targets = userAccountsList.filter(u => !currentUser || u.id.toLowerCase() !== currentUser.id.toLowerCase());
             if (!targets.length) { alert('대상 사용자가 없습니다.'); return; }
-            if (!confirm(`현재 목록의 다른 사용자 ${targets.length}명에 대해 로그인 계정을 생성합니다.\n이미 있는 계정은 건너뜁니다. 계속할까요?`)) return;
+            let common = prompt(`다른 사용자 ${targets.length}명의 로그인 계정을 만듭니다 (이미 있는 계정은 건너뜀).\n모두에게 쓸 임시 비밀번호를 입력하세요 (6자 이상):`, '111111');
+            if (common === null) return;
+            common = common.trim();
+            if (common.length < 6) { alert('비밀번호는 6자 이상이어야 합니다.'); return; }
             const sec = getSecAuth();
             const lines = [];
             for (const u of targets) {
-                const tmp = String(Math.floor(10000000 + Math.random() * 90000000));
+                const tmp = common;
                 try {
                     await sec.createUserWithEmailAndPassword(authEmail(u.id), tmp);
                     await sec.signOut();
