@@ -295,6 +295,18 @@
         .modal-card { background: white; border-radius: 8px; width: 560px; max-width: 90%; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .modal-card-large { width: 1000px; max-width: 98%; max-height: 92vh; overflow-y: auto; }
         .modal-header { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
+
+        /* 고객 등록/수정 모달: 구역별 6칸 격자, 칸 높이·라벨 정렬 통일 */
+        .mf-title { font-size: 12.5px; font-weight: 800; color: #1d4ed8; margin: 16px 0 8px; padding-bottom: 5px; border-bottom: 2px solid #dbeafe; }
+        .mf-title:first-of-type { margin-top: 4px; }
+        .mf-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0 12px; align-items: start; }
+        .mf-cell { min-width: 0; }
+        .mf-grid .form-group { margin-bottom: 12px; }
+        .mf-grid .form-group > label { display: flex; align-items: center; min-height: 24px; margin: 0 0 4px; }
+        .mf-grid .form-group > div:first-child { min-height: 24px; margin-bottom: 4px !important; }
+        .mf-grid .form-group > div:first-child > label { margin: 0 !important; }
+        .mf-grid .form-group input, .mf-grid .form-group select { height: 36px; box-sizing: border-box; }
+        .mf-grid .form-group > div:first-child select { height: 24px; padding: 0 4px; }
         .form-group { margin-bottom: 12px; position: relative; }
         #view-agencyContact .content-card > h3 { flex-wrap: wrap; gap: 8px; }
         #view-agencyContact .card-actions { flex-wrap: wrap; justify-content: flex-end; }
@@ -489,33 +501,43 @@
                 <span>신규 고객 수동 등록</span>
                 <span style="cursor:pointer;" onclick="closeModal('customerModal')">✕</span>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="form-group"><label>회원번호</label><input type="text" id="m_no" placeholder="예: 00000535"></div>
-                <div class="form-group"><label>회원명 (가맹점명)</label><input type="text" id="m_name" placeholder="예: 무고레에프앤비"></div>
-            </div>
-            <div class="form-group"><label>납부자 휴대전화</label><input type="text" id="m_phone" placeholder="010-0000-0000"></div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="form-group">
+<div class="mf-title">기본 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>회원번호</label><input type="text" id="m_no" placeholder="예: 00000535"></div></div>
+<div class="mf-cell" style="grid-column: span 4;"><div class="form-group"><label>회원명 (가맹점명)</label><input type="text" id="m_name" placeholder="예: 무고레에프앤비"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>납부자 휴대전화</label><input type="text" id="m_phone" placeholder="010-0000-0000"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group">
                     <label>계약상태</label>
                     <select id="m_status"><option value="사용">사용</option><option value="중지">중지</option></select>
-                </div>
-                <div class="form-group"><label>청구시작일</label><input type="date" id="m_start"></div>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group"><label>상품금액(원)</label><input type="number" id="m_amount" placeholder="33000"></div>
-                <div class="form-group"><label>약정일</label><input type="text" id="m_contract_day" placeholder="예: 5일, 10일"></div>
-                <div class="form-group"><label>회원구분</label><input type="text" id="m_type" placeholder="예: AI스캐너"></div>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group">
+                </div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>청구시작일</label><input type="date" id="m_start"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>회원구분</label><input type="text" id="m_type" placeholder="예: AI스캐너"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>약정일</label><input type="text" id="m_contract_day" placeholder="예: 5일, 10일"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>영업대표</label><input type="text" id="m_manager" placeholder="예: 오성현L"></div></div>
+</div>
+<div class="mf-title">사업장 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>납품처명</label><input type="text" id="m_supplier" placeholder="예: 메트로넷"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>사업자번호</label><input type="text" id="m_biz_no" placeholder="예: 123-45-67890" onblur="autoFillTaxContactByBizNo('m_biz_no', 'm_tax_name', 'm_tax_phone', 'm_tax_email')"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>지역</label><select id="m_region"><option value="">자동 (주소 기준)</option><option value="서울">서울</option><option value="경기">경기</option><option value="인천">인천</option><option value="부산">부산</option><option value="대구">대구</option><option value="광주">광주</option><option value="대전">대전</option><option value="울산">울산</option><option value="세종">세종</option><option value="강원">강원</option><option value="충북">충북</option><option value="충남">충남</option><option value="전북">전북</option><option value="전남">전남</option><option value="경북">경북</option><option value="경남">경남</option><option value="제주">제주</option></select></div></div>
+<div class="mf-cell" style="grid-column: span 6;"><div class="form-group"><label>주소 <span style="font-weight:500; color:#94a3b8;">(지역은 이 주소 기준으로 자동 분류됩니다)</span></label><input type="text" id="m_address" placeholder="예: 서울특별시 강남구 테헤란로 123"></div></div>
+</div>
+<div class="mf-title">금액 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>상품금액(원)</label><input type="number" id="m_amount" placeholder="33000"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                         <label style="margin:0;">영업수수료(원)</label>
                         <button type="button" class="btn btn-outline" style="padding:1px 6px; font-size:11px;" onclick="calcModalCommission('m_amount', 'm_commission')">자동계산</button>
                     </div>
                     <input type="number" id="m_commission" placeholder="0">
-                </div>
-                <div class="form-group"><label>엑셀명</label><input type="text" id="m_excel_name" placeholder="예: 곤트란쉐리에"></div>
-                <div class="form-group">
+                </div></div>
+<div style="grid-column: span 2;"></div>
+
+</div>
+<div class="mf-title">대리점 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 3;"><div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                         <label style="margin:0;">대리점명 (사업자번호 연동)</label>
                         <select id="m_agency_quick_select" style="font-size:11px; padding:1px 4px; max-width:140px;" onchange="applyQuickAgencySelect('m_agency_quick_select', 'm_agency_name', 'm_biz_no', 'm_tax_name', 'm_tax_phone', 'm_tax_email', 'm_agency_biz_no')">
@@ -523,26 +545,23 @@
                         </select>
                     </div>
                     <input type="text" autocomplete="off" oninput="agencySuggestShow('m')" onfocus="agencySuggestShow('m')" onblur="setTimeout(function(){agencySuggestHide('m')},180)" id="m_agency_name" placeholder="예: 포스뱅크"><div id="m_agency_suggest" class="agency-suggest" style="display:none;"></div>
-                </div>
-                <div class="form-group"><label>대리점 사업자번호</label><input type="text" id="m_agency_biz_no" placeholder="예: 123-45-67890"></div>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group"><label>Viscovery명</label><input type="text" id="m_viscovery_name" placeholder="예: Viscovery본점"></div>
-                <div class="form-group"><label>수량</label><input type="number" id="m_qty" placeholder="1" onchange="calcViscoveryFee('m_qty', 'm_viscovery_fee')"></div>
-                <div class="form-group">
+                </div></div>
+<div class="mf-cell" style="grid-column: span 3;"><div class="form-group"><label>대리점 사업자번호</label><input type="text" id="m_agency_biz_no" placeholder="예: 123-45-67890"></div></div>
+</div>
+<div class="mf-title">AI스캐너 / Viscovery 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>엑셀명</label><input type="text" id="m_excel_name" placeholder="예: 곤트란쉐리에"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>Viscovery명</label><input type="text" id="m_viscovery_name" placeholder="예: Viscovery본점"></div></div>
+<div style="grid-column: span 2;"></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>수량</label><input type="number" id="m_qty" placeholder="1" onchange="calcViscoveryFee('m_qty', 'm_viscovery_fee')"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                         <label style="margin:0;">Viscovery수수료(USD)</label>
                         <button type="button" class="btn btn-outline" style="padding:1px 6px; font-size:11px;" onclick="calcViscoveryFee('m_qty', 'm_viscovery_fee')">자동계산</button>
                     </div>
                     <input type="number" id="m_viscovery_fee" placeholder="45">
-                </div>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group"><label>납품처명</label><input type="text" id="m_supplier" placeholder="예: 메트로넷"></div>
-                <div class="form-group"><label>사업자번호</label><input type="text" id="m_biz_no" placeholder="예: 123-45-67890" onblur="autoFillTaxContactByBizNo('m_biz_no', 'm_tax_name', 'm_tax_phone', 'm_tax_email')"></div>
-                <div class="form-group"><label>지역</label><select id="m_region"><option value="">자동 (주소 기준)</option><option value="서울">서울</option><option value="경기">경기</option><option value="인천">인천</option><option value="부산">부산</option><option value="대구">대구</option><option value="광주">광주</option><option value="대전">대전</option><option value="울산">울산</option><option value="세종">세종</option><option value="강원">강원</option><option value="충북">충북</option><option value="충남">충남</option><option value="전북">전북</option><option value="전남">전남</option><option value="경북">경북</option><option value="경남">경남</option><option value="제주">제주</option></select></div>
-                <div class="form-group"><label>영업대표</label><input type="text" id="m_manager" placeholder="예: 오성현L"></div>
-            </div>
+                </div></div>
+</div>
 
             <!-- 세금계산서 담당자 정보 영역 -->
             <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:12px; margin-top:8px;">
@@ -569,24 +588,39 @@
                 <span style="cursor:pointer;" onclick="closeModal('detailModal')">✕</span>
             </div>
             <input type="hidden" id="edit_idx" />
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="form-group"><label>회원번호</label><input type="text" id="edit_no" readonly style="background:#f1f5f9; font-weight:bold;"></div>
-                <div class="form-group"><label>회원명 (가맹점명)</label><input type="text" id="edit_name"></div>
-            </div>
-            <div class="form-group"><label>납부자 휴대전화</label><input type="text" id="edit_phone"></div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="form-group">
+<div class="mf-title">기본 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>회원번호</label><input type="text" id="edit_no" readonly style="background:#f1f5f9; font-weight:bold;"></div></div>
+<div class="mf-cell" style="grid-column: span 4;"><div class="form-group"><label>회원명 (가맹점명)</label><input type="text" id="edit_name"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>납부자 휴대전화</label><input type="text" id="edit_phone"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group">
                     <label>계약상태</label>
                     <select id="edit_status"><option value="사용">사용</option><option value="중지">중지</option></select>
-                </div>
-                <div class="form-group"><label>청구시작일</label><input type="text" id="edit_start" placeholder="YYYY-MM-DD"></div>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group"><label>상품금액(원)</label><input type="number" id="edit_amount"></div>
-                <div class="form-group"><label>약정일</label><input type="text" id="edit_contract_day" placeholder="예: 5일, 10일"></div>
-                <div class="form-group"><label>회원구분</label><input type="text" id="edit_type"></div>
-            </div>
-            <div id="edit_payback_wrap" style="display:none; grid-template-columns: 1fr 2fr; gap: 8px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 10px; margin-bottom:8px;">
+                </div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>청구시작일</label><input type="text" id="edit_start" placeholder="YYYY-MM-DD"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>회원구분</label><input type="text" id="edit_type"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>약정일</label><input type="text" id="edit_contract_day" placeholder="예: 5일, 10일"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>영업대표</label><input type="text" id="edit_manager"></div></div>
+</div>
+<div class="mf-title">사업장 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>납품처명</label><input type="text" id="edit_supplier"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>사업자번호</label><input type="text" id="edit_biz_no" onblur="autoFillTaxContactByBizNo('edit_biz_no', 'edit_tax_name', 'edit_tax_phone', 'edit_tax_email')"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>지역</label><select id="edit_region"><option value="">자동 (주소 기준)</option><option value="서울">서울</option><option value="경기">경기</option><option value="인천">인천</option><option value="부산">부산</option><option value="대구">대구</option><option value="광주">광주</option><option value="대전">대전</option><option value="울산">울산</option><option value="세종">세종</option><option value="강원">강원</option><option value="충북">충북</option><option value="충남">충남</option><option value="전북">전북</option><option value="전남">전남</option><option value="경북">경북</option><option value="경남">경남</option><option value="제주">제주</option></select></div></div>
+<div class="mf-cell" style="grid-column: span 6;"><div class="form-group"><label>주소 <span style="font-weight:500; color:#94a3b8;">(지역은 이 주소 기준으로 자동 분류됩니다)</span></label><input type="text" id="edit_address" placeholder="예: 서울특별시 강남구 테헤란로 123"></div></div>
+</div>
+<div class="mf-title">금액 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>상품금액(원)</label><input type="number" id="edit_amount"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <label style="margin:0;">영업수수료(원)</label>
+                        <button type="button" class="btn btn-outline" style="padding:1px 6px; font-size:11px;" onclick="calcModalCommission('edit_amount', 'edit_commission')">자동계산</button>
+                    </div>
+                    <input type="number" id="edit_commission">
+                </div></div>
+<div style="grid-column: span 2;"></div>
+<div id="edit_payback_wrap" style="display:none; grid-template-columns: 1fr 2fr; gap: 8px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 10px; grid-column: 1 / -1; margin-bottom:4px;">
                 <div class="form-group" style="margin:0;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                         <label style="margin:0;">페이백금액(원)</label>
@@ -596,16 +630,10 @@
                 </div>
                 <div style="font-size:11.5px; color:#475569; align-self:center; line-height:1.6;">페이백 대상 매장입니다. 매월 100% 입금 시 지급되는 금액이며, '수수료 요율 관리'의 페이백 요율로 자동계산할 수 있습니다.</div>
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                        <label style="margin:0;">영업수수료(원)</label>
-                        <button type="button" class="btn btn-outline" style="padding:1px 6px; font-size:11px;" onclick="calcModalCommission('edit_amount', 'edit_commission')">자동계산</button>
-                    </div>
-                    <input type="number" id="edit_commission">
-                </div>
-                <div class="form-group"><label>엑셀명</label><input type="text" id="edit_excel_name"></div>
-                <div class="form-group">
+</div>
+<div class="mf-title">대리점 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 3;"><div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                         <label style="margin:0;">대리점명 (사업자번호 연동)</label>
                         <select id="edit_agency_quick_select" style="font-size:11px; padding:1px 4px; max-width:140px;" onchange="applyQuickAgencySelect('edit_agency_quick_select', 'edit_agency_name', 'edit_biz_no', 'edit_tax_name', 'edit_tax_phone', 'edit_tax_email', 'edit_agency_biz_no')">
@@ -613,26 +641,23 @@
                         </select>
                     </div>
                     <input type="text" autocomplete="off" oninput="agencySuggestShow('edit')" onfocus="agencySuggestShow('edit')" onblur="setTimeout(function(){agencySuggestHide('edit')},180)" id="edit_agency_name"><div id="edit_agency_suggest" class="agency-suggest" style="display:none;"></div>
-                </div>
-                <div class="form-group"><label>대리점 사업자번호</label><input type="text" id="edit_agency_biz_no"></div>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group"><label>Viscovery명</label><input type="text" id="edit_viscovery_name"></div>
-                <div class="form-group"><label>수량</label><input type="number" id="edit_qty" onchange="calcViscoveryFee('edit_qty', 'edit_viscovery_fee')"></div>
-                <div class="form-group">
+                </div></div>
+<div class="mf-cell" style="grid-column: span 3;"><div class="form-group"><label>대리점 사업자번호</label><input type="text" id="edit_agency_biz_no"></div></div>
+</div>
+<div class="mf-title">AI스캐너 / Viscovery 정보</div>
+<div class="mf-grid">
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>엑셀명</label><input type="text" id="edit_excel_name"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>Viscovery명</label><input type="text" id="edit_viscovery_name"></div></div>
+<div style="grid-column: span 2;"></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>수량</label><input type="number" id="edit_qty" onchange="calcViscoveryFee('edit_qty', 'edit_viscovery_fee')"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                         <label style="margin:0;">Viscovery수수료(USD)</label>
                         <button type="button" class="btn btn-outline" style="padding:1px 6px; font-size:11px;" onclick="calcViscoveryFee('edit_qty', 'edit_viscovery_fee')">자동계산</button>
                     </div>
                     <input type="number" id="edit_viscovery_fee">
-                </div>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
-                <div class="form-group"><label>납품처명</label><input type="text" id="edit_supplier"></div>
-                <div class="form-group"><label>사업자번호</label><input type="text" id="edit_biz_no" onblur="autoFillTaxContactByBizNo('edit_biz_no', 'edit_tax_name', 'edit_tax_phone', 'edit_tax_email')"></div>
-                <div class="form-group"><label>지역</label><select id="edit_region"><option value="">자동 (주소 기준)</option><option value="서울">서울</option><option value="경기">경기</option><option value="인천">인천</option><option value="부산">부산</option><option value="대구">대구</option><option value="광주">광주</option><option value="대전">대전</option><option value="울산">울산</option><option value="세종">세종</option><option value="강원">강원</option><option value="충북">충북</option><option value="충남">충남</option><option value="전북">전북</option><option value="전남">전남</option><option value="경북">경북</option><option value="경남">경남</option><option value="제주">제주</option></select></div>
-                <div class="form-group"><label>영업대표</label><input type="text" id="edit_manager"></div>
-            </div>
+                </div></div>
+</div>
 
             <!-- 세금계산서 담당자 정보 영역 -->
             <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:12px; margin-top:8px;">
@@ -2403,8 +2428,8 @@
 
         function downloadCustomerTemplate() {
             const templateHeader = [
-                ['회원번호', '회원명', '납부자 휴대전화', '계약상태', '상품금액', '약정일', '청구시작일', '회원구분', '영업수수료', '엑셀명', '대리점명', '대리점 사업자번호', '납품처명', '사업자번호', '지역', '영업대표', '세금계산서담당자', '계산서전화번호', '계산서이메일'],
-                ['6568803322-00', '주식회사 곤트란쉐리에상계본점_AI스캐너', '010-2496-7015', '사용', 165000, '5일', '2026-10-01', 'AI스캐너', 44000, '곤트란쉐리에', '포스뱅크', '123-45-67890', '메트로넷', '656-88-03322', '경기', '김원식', '홍길동', '010-1234-5678', 'tax@posbank.com']
+                ['회원번호', '회원명', '납부자 휴대전화', '계약상태', '상품금액', '약정일', '청구시작일', '회원구분', '영업수수료', '엑셀명', '대리점명', '대리점 사업자번호', '납품처명', '사업자번호', '지역', '주소', '영업대표', '세금계산서담당자', '계산서전화번호', '계산서이메일'],
+                ['6568803322-00', '주식회사 곤트란쉐리에상계본점_AI스캐너', '010-2496-7015', '사용', 165000, '5일', '2026-10-01', 'AI스캐너', 44000, '곤트란쉐리에', '포스뱅크', '123-45-67890', '메트로넷', '656-88-03322', '경기', '경기도 성남시 분당구 판교로 1', '김원식', '홍길동', '010-1234-5678', 'tax@posbank.com']
             ];
             const ws = XLSX.utils.aoa_to_sheet(templateHeader);
             const wb = XLSX.utils.book_new();
@@ -2898,6 +2923,7 @@
                         let bizNo = String(row['사업자번호'] || row['사업자 번호'] || row['가맹점'] || '-').trim();
                         let manager = String(row['영업대표'] || row['담당자'] || '-').trim();
                         let regionIn = normalizeRegionInput(row['지역']);
+                        let addressIn = String(row['주소'] || row['주소지'] || row['소재지'] || '').trim();
 
                         let taxName = String(row['세금계산서담당자'] || row['계산서담당자'] || '').trim();
                         let taxPhone = String(row['계산서전화번호'] || row['담당자전화번호'] || '').trim();
@@ -2933,6 +2959,7 @@
                             customerDataList[existingIndex].bizNo = bizNo;
                             customerDataList[existingIndex].manager = manager;
                             if (regionIn) customerDataList[existingIndex].region = regionIn;
+                            if (addressIn) customerDataList[existingIndex].address = addressIn;
                             customerDataList[existingIndex].taxName = taxName;
                             customerDataList[existingIndex].taxPhone = taxPhone;
                             customerDataList[existingIndex].taxEmail = taxEmail;
@@ -2956,6 +2983,7 @@
                                 bizNo: bizNo,
                                 manager: manager,
                                 region: regionIn,
+                                address: addressIn,
                                 taxName: taxName,
                                 taxPhone: taxPhone,
                                 taxEmail: taxEmail
@@ -6143,7 +6171,7 @@
             let agKey = cleanBizNo(agBiz);
             let agLink = (agKey && taxContactMap[agKey]) ? ` <a href="#" onclick="drawerOpen('agency:${agKey}'); return false;" style="font-size:11px; color:#2563eb;">대리점 보기 ›</a>` : '';
             let sec = [];
-            sec.push(`<div class="dr-sec"><h4>계약 정보</h4>${drGrid([['청구시작일', c.startDate], ['상품금액', c.amount > 0 ? c.amount.toLocaleString() + ' 원' : '-'], ['약정일', c.contractDay], ['납부자 휴대전화', c.phone], ['지역', custRegion(c)], ['영업대표', c.manager]])}</div>`);
+            sec.push(`<div class="dr-sec"><h4>계약 정보</h4>${drGrid([['청구시작일', c.startDate], ['상품금액', c.amount > 0 ? c.amount.toLocaleString() + ' 원' : '-'], ['약정일', c.contractDay], ['납부자 휴대전화', c.phone], ['지역', custRegion(c)], ['영업대표', c.manager], ['주소', c.address]])}</div>`);
             sec.push(`<div class="dr-sec"><h4>대리점</h4>${drGrid([['대리점명', (agName || '-') + agLink, true], ['대리점 사업자번호', agBiz], ['납품처명', c.supplier], ['사업자번호', c.bizNo || c.store]])}</div>`);
             if (c.type === 'AI스캐너' || c.viscoveryName || c.excelName) {
                 let unit = (viscoveryRateConfig && viscoveryRateConfig.defaultUnitPrice) ? viscoveryRateConfig.defaultUnitPrice : 45;
@@ -7362,6 +7390,7 @@
             let pbw = document.getElementById('edit_payback_wrap'), pbe = paybackMap[normalizeMemberNo(item.no)];
             if (pbw) { pbw.style.display = pbe ? 'grid' : 'none'; document.getElementById('edit_payback').value = pbe ? (pbe.amount || 0) : ''; }
             document.getElementById('edit_excel_name').value = item.excelName || '';
+            document.getElementById('edit_address').value = item.address || '';
             document.getElementById('edit_agency_name').value = item.agencyName || item.agency || '';
             document.getElementById('edit_agency_biz_no').value = item.agencyBizNo || '';
             document.getElementById('edit_viscovery_name').value = item.viscoveryName || '';
@@ -7925,6 +7954,7 @@
                 paybackMap[pbKey].amount = np;
             }
             item.excelName = document.getElementById('edit_excel_name').value.trim();
+            item.address = document.getElementById('edit_address').value.trim();
             item.agencyName = document.getElementById('edit_agency_name').value.trim();
             item.agencyBizNo = fmtBizNo(document.getElementById('edit_agency_biz_no').value.trim());
             item.agency = item.agencyName; 
@@ -8115,6 +8145,7 @@
                     '납품처명': item.supplier || '-',
                     '사업자번호': item.bizNo || '-',
                     '지역': custRegion(item),
+                    '주소': item.address || '-',
                     '영업대표': item.manager || '-'
                 }));
                 var ws = XLSX.utils.json_to_sheet(excelRows);
@@ -8150,6 +8181,7 @@
                         '납품처명': item.supplier || item.agency || '-',
                         '사업자번호': item.bizNo || item.store || '-',
                         '지역': custRegion(item),
+                        '주소': item.address || '-',
                         '영업대표': item.manager || '-',
                         '세금계산서담당자': tInfo.taxName || '-',
                         '계산서전화번호': tInfo.taxPhone || '-',
@@ -8242,6 +8274,7 @@
                 viscoveryFee: visFee,
                 commission: parseCleanInt(document.getElementById('m_commission').value, 0),
                 excelName: document.getElementById('m_excel_name').value.trim() || '',
+                address: document.getElementById('m_address').value.trim(),
                 agencyName: agencyName,
                 agencyBizNo: fmtBizNo(document.getElementById('m_agency_biz_no').value.trim()),
                 agency: agencyName,
