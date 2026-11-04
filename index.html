@@ -8386,7 +8386,11 @@
                 chartPaymentInstance.destroy();
             }
 
-            const months = ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10'];
+            // 최근 6개월 (오늘이 속한 달 또는 데이터가 있는 가장 늦은 달까지) — 월이 바뀌면 자동으로 이동
+            let lastYm = vsTodayYm();
+            billingDataList.forEach(b => { let m = normalizeYM(b.month); if (/^\d{4}-\d{2}$/.test(m) && m > lastYm) lastYm = m; });
+            const months = [];
+            for (let i = 5; i >= 0; i--) months.push(csShiftYm(lastYm, -i));
             const billData = months.map(m => {
                 return billingDataList.filter(b => normalizeYM(b.month) === m).reduce((acc, cur) => acc + (cur.amount || 0), 0);
             });
