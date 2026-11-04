@@ -14,6 +14,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     
     <style>
         :root {
@@ -1969,6 +1970,7 @@
                         <span>아이디별 사용자 권한 및 계정 관리</span>
                         <div class="card-actions">
                             <button class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;" onclick="openAddUserModal()">+ 신규 사용자 계정 생성</button>
+                            <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="authBulkCreate()">로그인 계정 일괄 생성</button>
                         </div>
                     </h3>
                     <div class="table-container">
@@ -2189,8 +2191,8 @@
         };
 
         let userAccountsList = [
-            { id: "admin", pw: "1234", name: "최고관리자", role: "관리자", phone: "010-0000-0000", email: "admin@imupos.com", isBlocked: false },
-            { id: "psei", pw: "1111", name: "박세이", role: "관리자", phone: "010-9324-1452", email: "psei@imupos.com", isBlocked: false }
+            { id: "admin", name: "최고관리자", role: "관리자", phone: "010-0000-0000", email: "admin@imupos.com", isBlocked: false },
+            { id: "psei", name: "박세이", role: "관리자", phone: "010-9324-1452", email: "psei@imupos.com", isBlocked: false }
         ];
 
         let currentUser = null; 
@@ -3124,94 +3126,115 @@
             if (!Array.isArray(list)) list = Object.values(list);
 
             const defaults = [
-                { id: "admin", pw: "1234", name: "최고관리자", role: "관리자", phone: "010-0000-0000", email: "admin@imupos.com", isBlocked: false },
-                { id: "psei", pw: "1111", name: "박세이", role: "관리자", phone: "010-9324-1452", email: "psei@imupos.com", isBlocked: false }
+                { id: "admin", name: "최고관리자", role: "관리자", phone: "010-0000-0000", email: "admin@imupos.com", isBlocked: false },
+                { id: "psei", name: "박세이", role: "관리자", phone: "010-9324-1452", email: "psei@imupos.com", isBlocked: false }
             ];
             defaults.forEach(def => {
                 let found = list.find(u => String(u.id).trim().toLowerCase() === def.id.toLowerCase());
                 if (!found) {
                     list.push(def);
                 } else {
-                    found.pw = String(found.pw || def.pw);
                     found.isBlocked = false;
                 }
             });
+            list.forEach(u => { if (u && 'pw' in u) delete u.pw; });   // 평문 비밀번호 제거 (Firebase 인증으로 대체)
             userAccountsList = list;
             return userAccountsList;
         }
 
-        function processKCDLogin() {
+        const AUTH_DOMAIN = '@imupos.com';
+        function authEmail(id) { return String(id).trim().toLowerCase() + AUTH_DOMAIN; }
+        function authErrMsg(err) {
+            const c = err && err.code || '';
+            if (c === 'auth/invalid-credential' || c === 'auth/user-not-found' || c === 'auth/wrong-password' || c === 'auth/invalid-email') return '아이디 또는 비밀번호가 올바르지 않습니다.';
+            if (c === 'auth/too-many-requests') return '로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.';
+            if (c === 'auth/network-request-failed') return '네트워크 연결을 확인해 주세요.';
+            if (c === 'auth/user-disabled') return '비활성화된 계정입니다. 관리자에게 문의하세요.';
+            if (c === 'auth/weak-password') return '비밀번호는 6자 이상이어야 합니다.';
+            if (c === 'auth/requires-recent-login') return '보안을 위해 다시 로그인한 후 시도해 주세요.';
+            return '오류: ' + (err && err.message || err);
+        }
+
+        // 로그인 사용자 정보(권한/이름) 확정: final=true 는 DB의 계정 목록을 받은 뒤
+        function authResolveUser(final) {
+            let fu = null;
+            try { fu = firebase.auth().currentUser; } catch (e) {}
+            if (!fu || !fu.email) return;
+            const id = fu.email.split('@')[0].toLowerCase();
+            const acc = ensureValidUserList().find(u => String(u.id).trim().toLowerCase() === id);
+            if (acc && acc.isBlocked) {
+                alert("해당 계정은 블락(차단)된 상태입니다. 관리자에게 문의하세요.");
+                authSignOut(); return;
+            }
+            if (!acc) {
+                if (final) {
+                    alert("계정 권한이 등록되어 있지 않습니다. 관리자에게 문의하세요.");
+                    authSignOut(); return;
+                }
+                currentUser = { id, name: id, role: '보기전용' };
+            } else {
+                currentUser = { id: acc.id, name: acc.name, role: acc.role };
+            }
+            updateAuthUI();
+        }
+        function authSignOut() {
+            currentUser = null;
+            try { firebase.auth().signOut(); } catch (e) {}
+            updateAuthUI();
+        }
+        function bootAuth() {
             try {
-                let idInput = document.getElementById('kcd_login_id');
-                let pwInput = document.getElementById('kcd_login_pw');
-                let id = idInput ? idInput.value.trim() : '';
-                let pw = pwInput ? pwInput.value.trim() : '';
+                firebase.auth().onAuthStateChanged(user => {
+                    if (user) {
+                        if (window.startDbSync) window.startDbSync();
+                        authResolveUser(false);
+                    } else {
+                        currentUser = null;
+                        updateAuthUI();
+                    }
+                });
+            } catch (e) {
+                console.warn('Firebase Auth 초기화 오류:', e);
+                updateAuthUI();
+            }
+        }
 
-                if (!id || !pw) {
-                    alert("아이디와 비밀번호를 모두 입력해 주세요.");
-                    return;
-                }
-
-                let target = null;
-                let lowerId = id.toLowerCase();
-
-                if (lowerId === 'psei' && pw === '1111') {
-                    target = { id: 'psei', pw: '1111', name: '박세이', role: '관리자', isBlocked: false };
-                } else if (lowerId === 'admin' && pw === '1234') {
-                    target = { id: 'admin', pw: '1234', name: '최고관리자', role: '관리자', isBlocked: false };
-                } else {
-                    let accounts = ensureValidUserList();
-                    target = accounts.find(u => 
-                        String(u.id).trim().toLowerCase() === lowerId && 
-                        String(u.pw).trim() === pw
-                    );
-                }
-
-                if (!target) {
-                    alert("아이디 또는 비밀번호가 올바르지 않습니다.");
-                    return;
-                }
-
-                if (target.isBlocked) {
-                    alert("해당 계정은 블락(차단)된 상태입니다. 관리자에게 문의하세요.");
-                    return;
-                }
-
+        function processKCDLogin() {
+            let idInput = document.getElementById('kcd_login_id');
+            let pwInput = document.getElementById('kcd_login_pw');
+            let id = idInput ? idInput.value.trim() : '';
+            let pw = pwInput ? pwInput.value : '';
+            if (!id || !pw) {
+                alert("아이디와 비밀번호를 모두 입력해 주세요.");
+                return;
+            }
+            if (id.indexOf('@') >= 0) id = id.split('@')[0];   // 이메일 형태로 입력해도 허용
+            firebase.auth().signInWithEmailAndPassword(authEmail(id), pw).then(() => {
                 try {
                     let remEl = document.getElementById('remember_login');
-                    let rememberChecked = remEl ? remEl.checked : false;
-                    if (rememberChecked) {
+                    if (remEl && remEl.checked) {
                         localStorage.setItem('saved_login_id', id);
-                        localStorage.setItem('saved_login_pw', pw);
                         localStorage.setItem('saved_login_checked', 'true');
                     } else {
                         localStorage.removeItem('saved_login_id');
-                        localStorage.removeItem('saved_login_pw');
                         localStorage.removeItem('saved_login_checked');
                     }
-                } catch (e) {
-                    console.warn("Storage 오류 무시:", e);
-                }
-
-                currentUser = { id: target.id, name: target.name, role: target.role };
-                sessionStorage.setItem('cms_logged_user', JSON.stringify(currentUser));
-
+                    localStorage.removeItem('saved_login_pw');
+                } catch (e) { console.warn("Storage 오류 무시:", e); }
+                if (pwInput) pwInput.value = '';
                 let loginPage = document.getElementById('loginPageContainer');
                 if (loginPage) loginPage.style.display = 'none';
-
-                updateAuthUI();
-                alert(`${target.name || target.id}님 환영합니다! 로그인이 완료되었습니다.`);
-            } catch (err) {
-                console.error("로그인 에러:", err);
-                alert("로그인 처리 중 오류 발생: " + err.message);
-            }
+                authResolveUser(false);
+                alert(`${(currentUser && currentUser.name) || id}님 환영합니다! 로그인이 완료되었습니다.`);
+            }).catch(err => {
+                console.warn('로그인 실패:', err && err.code);
+                alert(authErrMsg(err));
+            });
         }
 
         function handleAuthBtnClick() {
             if (currentUser) {
-                currentUser = null;
-                sessionStorage.removeItem('cms_logged_user');
-                updateAuthUI();
+                authSignOut();
                 alert("로그아웃 되었습니다. 로그인 화면으로 이동합니다.");
             } else {
                 document.getElementById('loginPageContainer').style.display = 'flex';
@@ -3288,14 +3311,11 @@
                     const pwEl = document.getElementById('kcd_login_pw');
                     const remEl = document.getElementById('remember_login');
                     if (idEl) idEl.value = localStorage.getItem('saved_login_id') || '';
-                    if (pwEl) pwEl.value = localStorage.getItem('saved_login_pw') || '';
+                    localStorage.removeItem('saved_login_pw');
                     if (remEl) remEl.checked = true;
                 }
 
-                let sessionUser = sessionStorage.getItem('cms_logged_user');
-                if (sessionUser) {
-                    currentUser = JSON.parse(sessionUser);
-                }
+                sessionStorage.removeItem('cms_logged_user');
             } catch (storageErr) {
                 console.warn("스토리지 로드 예외 방어:", storageErr);
             }
@@ -3317,6 +3337,9 @@
             renderCommissionRateTable();
             renderViscoveryRateTable();
 
+            window.startDbSync = function () {
+              if (window._dbSyncStarted) return;
+              window._dbSyncStarted = true;
             try {
                 db.ref('cms_erp_data').on('value', (snapshot) => {
                     const data = snapshot.val();
@@ -3368,6 +3391,7 @@
                             if (srvUsers.length > 0) userAccountsList = srvUsers;
                         }
                         ensureValidUserList();
+                        try { authResolveUser(true); } catch (e) { console.warn(e); }
                         custEditLogMap = data.custLogs || custEditLogMap;
                         payEditLogMap = data.payLogs || payEditLogMap;
                         uploadBatchList = data.batches || uploadBatchList;
@@ -3406,6 +3430,8 @@
             } catch (fbErr) {
                 console.warn("Firebase 연동 오류 방어:", fbErr);
             }
+            };
+            bootAuth();
         });
 
         function changePaymentYear(dir) {
@@ -3420,6 +3446,7 @@
         function syncToFirebase() {
             saveLocalStorage();
             try {
+                if (!firebase.auth().currentUser) return;   // 로그인 전에는 서버에 쓰지 않음
                 db.ref('cms_erp_data').set({
                     customers: customerDataList,
                     payments: paymentDataMap,
@@ -7702,7 +7729,7 @@
                 tbody += `<tr>
                     <td class="text-center">${idx + 1}</td>
                     <td><strong>${u.id}</strong></td>
-                    <td>••••</td>
+                    <td style="color:#94a3b8;">Firebase 인증</td>
                     <td>${u.role}</td>
                     <td>${u.name}</td>
                     <td>${u.phone || '-'}</td>
@@ -7722,6 +7749,7 @@
         }
 
         function toggleBlockUser(id) {
+            if (!userAdminOnly()) return;
             let target = userAccountsList.find(u => u.id === id);
             if (target) {
                 target.isBlocked = !target.isBlocked;
@@ -7739,7 +7767,8 @@
             document.getElementById('u_edit_mode').value = 'EDIT';
             document.getElementById('u_id').value = target.id;
             document.getElementById('u_id').readOnly = true; 
-            document.getElementById('u_pw').value = target.pw || '';
+            document.getElementById('u_pw').value = '';
+            document.getElementById('u_pw').placeholder = '변경 시에만 입력 (본인 비밀번호만 직접 변경 가능)';
             document.getElementById('u_name').value = target.name || '';
             document.getElementById('u_role').value = target.role || '보기전용';
             document.getElementById('u_phone').value = target.phone || '';
@@ -7759,11 +7788,12 @@
 
             if (!confirm(`정말 [${target.name || target.id}] 계정을 영구 삭제하시겠습니까?`)) return;
 
+            if (!userAdminOnly()) return;
             userAccountsList = userAccountsList.filter(u => u.id !== id);
             saveLocalStorage();
             syncToFirebase();
             renderAdminUsersTable();
-            alert("계정이 삭제되었습니다.");
+            alert("계정 권한이 삭제되었습니다. (이 아이디로는 더 이상 접속할 수 없습니다)\n※ 완전 삭제는 Firebase 콘솔 > Authentication > Users 에서도 삭제해 주세요.");
         }
 
         function renderTrashTable() {
@@ -8425,6 +8455,7 @@
             document.getElementById('u_id').value = '';
             document.getElementById('u_id').readOnly = false;
             document.getElementById('u_pw').value = '';
+            document.getElementById('u_pw').placeholder = '임시 비밀번호 (6자 이상)';
             document.getElementById('u_name').value = '';
             document.getElementById('u_role').value = '보기전용';
             document.getElementById('u_phone').value = '';
@@ -8432,48 +8463,97 @@
             openModal('userAdminModal');
         }
 
+        function getSecAuth() {
+            let app;
+            try { app = firebase.app('sec'); } catch (e) { app = firebase.initializeApp(firebaseConfig, 'sec'); }
+            return app.auth();
+        }
+        function userAdminOnly() {
+            if (!currentUser || currentUser.role !== '관리자') { alert('관리자만 사용할 수 있습니다.'); return false; }
+            return true;
+        }
         function saveUserAccount() {
+            if (!userAdminOnly()) return;
             const mode = document.getElementById('u_edit_mode').value;
             const id = document.getElementById('u_id').value.trim();
-            const pw = document.getElementById('u_pw').value.trim();
+            const pw = document.getElementById('u_pw').value;
             const name = document.getElementById('u_name').value.trim();
             const role = document.getElementById('u_role').value;
             const phone = document.getElementById('u_phone').value.trim();
             const email = document.getElementById('u_email').value.trim();
 
-            if (!id || !pw || !name) {
+            if (!id || !name || (mode !== 'EDIT' && !pw)) {
                 alert("아이디, 비밀번호, 이름은 필수입니다.");
                 return;
             }
+            if (!/^[A-Za-z0-9._-]+$/.test(id)) { alert("아이디는 영문/숫자/._- 만 사용할 수 있습니다."); return; }
 
             if (mode === 'EDIT') {
                 let target = userAccountsList.find(u => u.id === id);
-                if (target) {
-                    target.pw = pw;
-                    target.name = name;
-                    target.role = role;
-                    target.phone = phone;
-                    target.email = email;
-                    saveLocalStorage();
+                if (!target) return;
+                const finish = (msg) => {
+                    target.name = name; target.role = role; target.phone = phone; target.email = email;
+                    delete target.pw;
                     syncToFirebase();
                     renderAdminUsersTable();
+                    if (currentUser && currentUser.id === target.id) { currentUser.name = name; currentUser.role = role; updateAuthUI(); }
                     closeModal('userAdminModal');
-                    alert(`[${name}] 계정 정보가 성공적으로 수정되었습니다.`);
+                    alert(msg || `[${name}] 계정 정보가 성공적으로 수정되었습니다.`);
+                };
+                if (!pw) { finish(); return; }
+                if (pw.length < 6) { alert("비밀번호는 6자 이상이어야 합니다."); return; }
+                const fu = firebase.auth().currentUser;
+                if (fu && fu.email && fu.email.split('@')[0].toLowerCase() === id.toLowerCase()) {
+                    fu.updatePassword(pw).then(() => finish('정보가 수정되고 비밀번호가 변경되었습니다.'))
+                      .catch(err => alert(authErrMsg(err)));
+                } else if (confirm(`다른 사용자의 비밀번호는 여기서 직접 바꿀 수 없습니다.\n[${authEmail(id)}] 로 비밀번호 재설정 메일을 보낼까요?\n(확인 시 나머지 정보는 저장됩니다)`)) {
+                    firebase.auth().sendPasswordResetEmail(authEmail(id))
+                      .then(() => finish('정보가 수정되었고 재설정 메일을 발송했습니다.'))
+                      .catch(err => alert(authErrMsg(err)));
                 }
-            } else {
-                const existingIdx = userAccountsList.findIndex(u => u.id.toLowerCase() === id.toLowerCase());
-                if (existingIdx >= 0) {
-                    alert("이미 존재하는 아이디입니다.");
-                    return;
-                }
+                return;
+            }
 
-                userAccountsList.push({ id, pw, name, role, phone, email, isBlocked: false });
-                saveLocalStorage();
+            if (userAccountsList.findIndex(u => u.id.toLowerCase() === id.toLowerCase()) >= 0) {
+                alert("이미 존재하는 아이디입니다.");
+                return;
+            }
+            if (pw.length < 6) { alert("비밀번호는 6자 이상이어야 합니다."); return; }
+            const sec = getSecAuth();
+            const register = (msg) => {
+                userAccountsList.push({ id, name, role, phone, email, isBlocked: false });
                 syncToFirebase();
                 renderAdminUsersTable();
                 closeModal('userAdminModal');
-                alert(`[${name}] 계정이 성공적으로 등록되었습니다.`);
+                alert(msg || `[${name}] 계정이 성공적으로 등록되었습니다.\n임시 비밀번호를 본인에게 전달해 주세요.`);
+            };
+            sec.createUserWithEmailAndPassword(authEmail(id), pw).then(() => sec.signOut()).then(() => register())
+              .catch(err => {
+                  if (err && err.code === 'auth/email-already-in-use') {
+                      if (confirm('이미 로그인 계정(Firebase)이 존재합니다. 권한 목록에만 등록할까요?\n(기존 비밀번호가 그대로 사용됩니다)')) register('권한 목록에 등록되었습니다.');
+                  } else alert(authErrMsg(err));
+              });
+        }
+
+        // 목록에는 있으나 로그인 계정이 없는 사용자에게 임시 비밀번호로 일괄 생성
+        async function authBulkCreate() {
+            if (!userAdminOnly()) return;
+            const targets = userAccountsList.filter(u => !currentUser || u.id.toLowerCase() !== currentUser.id.toLowerCase());
+            if (!targets.length) { alert('대상 사용자가 없습니다.'); return; }
+            if (!confirm(`현재 목록의 다른 사용자 ${targets.length}명에 대해 로그인 계정을 생성합니다.\n이미 있는 계정은 건너뜁니다. 계속할까요?`)) return;
+            const sec = getSecAuth();
+            const lines = [];
+            for (const u of targets) {
+                const tmp = String(Math.floor(10000000 + Math.random() * 90000000));
+                try {
+                    await sec.createUserWithEmailAndPassword(authEmail(u.id), tmp);
+                    await sec.signOut();
+                    lines.push(`${u.id} (${u.name}) → 임시 비밀번호 ${tmp}`);
+                } catch (err) {
+                    lines.push(`${u.id} (${u.name}) → ` + (err && err.code === 'auth/email-already-in-use' ? '이미 계정 있음(건너뜀)' : authErrMsg(err)));
+                }
             }
+            alert('처리 결과 (임시 비밀번호는 지금만 확인 가능합니다. 각자에게 전달하세요):\n\n' + lines.join('\n'));
         }
     </script>
 </div>
