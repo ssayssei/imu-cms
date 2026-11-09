@@ -1833,7 +1833,6 @@
                         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="csOpenHistory()">🕘 확정 이력</button>
                         <button class="btn btn-primary" id="csConfirmBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csConfirmMonth()">✅ 정산 확정</button>
                         <button class="btn btn-outline" id="csUnconfirmBtn" style="font-size:12px; padding:6px 12px; display:none; color:#dc2626; border-color:#fca5a5;" onclick="csUnconfirmMonth()">🔓 확정 해제</button>
-                        <button class="btn btn-primary" id="csAddBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csOpenAddModal()">➕ 매장 추가</button>
                         <button class="btn btn-outline" id="csGenBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csGenPrev()"></button>
                     </div>
                     <div id="csConfirmBanner" style="display:none;"></div>
@@ -1850,7 +1849,8 @@
                 </div>
 
                 <div class="content-card">
-                    <h3><span>매장별 입금 · 정산 내역</span><span id="csDetailHint" style="font-size:11px; color:#64748b; font-weight:500;">금액 단위: 원 (VAT 포함)</span></h3>
+                    <h3><span id="csTableTitle">매장별 입금 · 정산 내역</span><div class="card-actions"><span id="csManualInfo" style="font-size:11px; font-weight:500; color:#64748b; margin-right:8px;"></span><button class="btn btn-primary" id="csAddBtn" style="font-size: 12px; padding: 6px 12px;" onclick="csOpenAddModal()">+ 매장 추가</button></div></h3>
+                    <div id="csDetailHint" style="font-size:11px; color:#64748b; margin:-4px 0 8px;">금액 단위: 원 (VAT 포함)</div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
                         <input type="text" id="csSearch" placeholder="대리점, 매장명, 영업대표 검색" oninput="csFilter.q=this.value; csRenderDetail();" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; width:240px;">
                         <select id="csStatusSel" class="filter-select" onchange="csFilter.status=this.value; csRenderDetail();">
@@ -5688,9 +5688,13 @@
             document.getElementById('csConfirmBtn').style.display = (!cf && vsIsAdmin()) ? '' : 'none';
             document.getElementById('csUnconfirmBtn').style.display = (cf && vsIsAdmin()) ? '' : 'none';
             document.getElementById('csAddBtn').style.display = (!cf && vsCanEdit()) ? '' : 'none';
+            let cm = (vsSettle.commManual && vsSettle.commManual[ym]) || {};
+            let cAdd = Object.values(cm).filter(x => x && x.add).length, cRem = Object.values(cm).filter(x => x === 'remove').length;
+            document.getElementById('csManualInfo').innerText = cf ? '확정본 (수정 불가)' : (cAdd || cRem) ? `수동 조정: 추가 ${cAdd}건 · 제외 ${cRem}건` : '자동 기준 그대로 집계 중';
 
             let rows = csBuildRows(ym);
             csLastGroups = csGroup(rows);
+            document.getElementById('csTableTitle').innerText = `${csYmLabel(ym)} 매장별 입금 · 정산 내역 (${vsNum(rows.length)}건)${cf ? ' 🔒 확정' : ''}`;
             let paidAg = csLastGroups.filter(g => g.settle > 0).length;
             let total = vsSum(rows, r => r.settle), dep = vsSum(rows, r => r.cells[2].v), qty = vsSum(rows, r => r.qty);
             let unpaid = rows.filter(r => r.state === '미납' || r.state === '부분입금');
