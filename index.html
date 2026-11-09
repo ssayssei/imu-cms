@@ -1736,6 +1736,36 @@
                 </div>
             </div>
 
+            <!-- [영업수수료] 정산 매장 수동 추가 모달 -->
+            <div id="csAddModal" class="modal-overlay">
+                <div class="modal-card modal-card-large" style="width: 900px; max-height: 92vh; overflow:auto;">
+                    <div class="modal-header">
+                        <span id="csAddTitle">➕ 정산 매장 추가</span>
+                        <span style="cursor:pointer;" onclick="closeModal('csAddModal')">✕</span>
+                    </div>
+                    <div style="font-size:12px; color:#475569; line-height:1.7; margin-bottom:10px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:10px 12px;">
+                        <strong>자동 정산 기준</strong> : '사용' 매장 중 정산 연월에 청구금액이 있는 매장 (해지 매장은 최근 3개월 내역이 있을 때만 표시).<br>
+                        기준에 맞지 않아 빠진 매장은 이번 달 정산에만 수동으로 추가할 수 있습니다. 추가한 매장의 정산금은 <strong>월 영업수수료 × 아래 정산 개월 수</strong>입니다. (고객 정보는 바뀌지 않습니다)
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px;">
+                        <input type="text" id="csAddSearch" placeholder="대리점, 매장명, 회원번호 검색..." oninput="csRenderAddList()" style="flex:1; min-width:240px; padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px;">
+                        <label style="font-size:12px; color:#475569;">정산 개월 수 <input type="number" id="csAddMonths" min="1" max="12" value="1" style="width:60px; padding:6px; border:1px solid #cbd5e1; border-radius:6px;"></label>
+                        <span id="csAddCount" style="font-size:12px; color:#64748b;"></span>
+                        <button class="btn btn-primary" onclick="csAddSelected()">선택 추가</button>
+                    </div>
+                    <div style="max-height:46vh; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">
+                        <table>
+                            <thead><tr>
+                                <th class="text-center" style="width:36px;"><input type="checkbox" id="csAddAll" onclick="csToggleAddAll(this)"></th>
+                                <th>대리점</th><th>매장명</th><th class="text-center">계약상태</th><th class="text-right">월 영업수수료</th><th>정산에서 빠진 사유</th><th class="text-center" style="width:70px;">추가</th>
+                            </tr></thead>
+                            <tbody id="csAddBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; margin-top:12px;"><button class="btn btn-outline" onclick="closeModal('csAddModal')">닫기</button></div>
+                </div>
+            </div>
+
             <div id="csExpenseModal" class="modal-overlay">
                 <div class="modal-card modal-card-large" style="width: 920px; max-height: 92vh; overflow:auto;">
                     <div class="modal-header">
@@ -1803,6 +1833,7 @@
                         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="csOpenHistory()">🕘 확정 이력</button>
                         <button class="btn btn-primary" id="csConfirmBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csConfirmMonth()">✅ 정산 확정</button>
                         <button class="btn btn-outline" id="csUnconfirmBtn" style="font-size:12px; padding:6px 12px; display:none; color:#dc2626; border-color:#fca5a5;" onclick="csUnconfirmMonth()">🔓 확정 해제</button>
+                        <button class="btn btn-primary" id="csAddBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csOpenAddModal()">➕ 매장 추가</button>
                         <button class="btn btn-outline" id="csGenBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csGenPrev()"></button>
                     </div>
                     <div id="csConfirmBanner" style="display:none;"></div>
@@ -4248,7 +4279,7 @@
 
         function vsNormalize() {
             if (!vsSettle || typeof vsSettle !== 'object') vsSettle = {};
-            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'payClosed'].forEach(k => {
+            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'commManual', 'payClosed'].forEach(k => {
                 if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
             });
             if (!Array.isArray(vsSettle.confirmLog)) vsSettle.confirmLog = [];
@@ -5568,12 +5599,16 @@
         function csBuildRows(ym) {
             if (csIsConfirmed(ym)) return JSON.parse(JSON.stringify(vsSettle.commConfirmed[ym].rows || []));
             let win = csWindow(ym), rows = [];
+            let cman = (vsSettle.commManual && vsSettle.commManual[ym]) || {};
             customerDataList.filter(c => c.type === 'AI스캐너').forEach(c => {
                 let cells = win.map(m => csCell(c, m));
                 let cM = cells[2];
+                let mkey = vsSafeKey(c.no), ms = cman[mkey];
+                if (ms === 'remove') return;                                   // 수동 제외
+                let forced = !!(ms && ms.add);
                 let active = c.status === '사용' && cM.bill > 0;
                 let ended = c.status === '해지' && cells.some(x => x.bill > 0 || x.v > 0);
-                if (!active && !ended) return;
+                if (!active && !ended && !forced) return;
                 let months = 0, state = '정상', unpaidAmt = 0;
                 if (c.status === '해지') state = '해지';
                 else if (cM.t === 'paid') { months = Math.max(1, Math.round(cM.v / cM.bill)); state = months > 1 ? '소급' : '정상'; }
@@ -5583,14 +5618,19 @@
                 let agencyName = c.agencyName || c.agency || c.supplier || '-';
                 let ag = vsAgencyLookup(agencyName, c.agencyBizNo);
                 let payback = c.commission || 0;
-                rows.push({
+                let row = {
                     key: vsSafeKey(c.no), no: c.no, store: c.excelName || c.name || '-', biz: c.bizNo && c.bizNo !== '-' ? c.bizNo : '',
                     agency: agencyName, agencyBiz: c.agencyBizNo || (ag ? ag.bizNo : '') || '',
                     region: custRegion(c, ag), rep: c.manager || '-', qty: (c.qty !== undefined && c.qty !== null) ? c.qty : 1,
                     bill: cM.bill, payback: payback,
                     cells: cells.map(x => ({ t: x.t, v: x.v })), months: months, state: state, unpaidAmt: unpaidAmt,
                     settle: payback * months
-                });
+                };
+                if (forced && !(active || ended)) {                            // 수동 추가 (자동 기준 밖)
+                    row.manualAdded = true; row.months = ms.months || 1; row.state = '수동'; row.unpaidAmt = 0;
+                    row.settle = payback * row.months;
+                } else if (forced) { row.manualAdded = true; }
+                rows.push(row);
             });
             return rows;
         }
@@ -5647,6 +5687,7 @@
             else { banner.style.cssText = 'display:block; margin-top:10px; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:600; background:#fffbeb; color:#b45309; border:1px solid #fcd34d;'; banner.innerText = '📝 미확정 · 시스템 데이터에 따라 내용이 계속 바뀝니다. 확정하면 현재 내용으로 고정됩니다.'; }
             document.getElementById('csConfirmBtn').style.display = (!cf && vsIsAdmin()) ? '' : 'none';
             document.getElementById('csUnconfirmBtn').style.display = (cf && vsIsAdmin()) ? '' : 'none';
+            document.getElementById('csAddBtn').style.display = (!cf && vsCanEdit()) ? '' : 'none';
 
             let rows = csBuildRows(ym);
             csLastGroups = csGroup(rows);
@@ -5691,8 +5732,9 @@
         function csRenderDetail() {
             if (!csCurrentMonth) return;
             let ym = csCurrentMonth, win = csWindow(ym), q = (csFilter.q || '').toLowerCase().trim();
-            document.getElementById('csDetailHead').innerHTML = `<tr><th>대리점</th><th>매장명</th><th class="text-center">지역</th><th class="text-center">영업대표</th><th class="text-center">수량</th><th class="text-right">월 청구비용</th><th class="text-right">월 영업수수료</th>${win.map((m, i) => `<th class="text-center"${i === 2 ? ' style="color:#059669;"' : ''}>${csMm(m)} 입금</th>`).join('')}<th class="text-right" style="color:#4f46e5;">매장 정산금</th><th class="text-right" style="color:#1d4ed8; background:#eff6ff;">대리점 정산금</th></tr>`;
+            document.getElementById('csDetailHead').innerHTML = `<tr><th>대리점</th><th>매장명</th><th class="text-center">지역</th><th class="text-center">영업대표</th><th class="text-center">수량</th><th class="text-right">월 청구비용</th><th class="text-right">월 영업수수료</th>${win.map((m, i) => `<th class="text-center"${i === 2 ? ' style="color:#059669;"' : ''}>${csMm(m)} 입금</th>`).join('')}<th class="text-right" style="color:#4f46e5;">매장 정산금</th><th class="text-right" style="color:#1d4ed8; background:#eff6ff;">대리점 정산금</th><th class="text-center">작업</th></tr>`;
             let html = '', shown = 0;
+            let canAct = vsCanEdit() && !csIsConfirmed(ym);
             csLastGroups.forEach(g => {
                 if (csFilter.agency !== 'ALL' && g.agency !== csFilter.agency) return;
                 let rs = g.rows.filter(r => (csFilter.status === 'ALL' || r.state === csFilter.status) && (csFilter.region === 'ALL' || (r.region || '-') === csFilter.region) && (!q || (g.agency + ' ' + r.store + ' ' + r.rep).toLowerCase().includes(q)));
@@ -5701,15 +5743,16 @@
                     let stTag = r.state === '소급' ? ` <span class="cs-b cs-retro" style="font-size:10px;">소급 ${r.months}개월</span>` : '';
                     html += `<tr>
                         ${i === 0 ? `<td rowspan="${rs.length}" style="font-weight:700; vertical-align:middle; background:#f8fafc; border-right:1px solid #e2e8f0;">${escHtml(g.agency)}</td>` : ''}
-                        <td>${escHtml(r.store)}${stTag}</td><td class="text-center">${escHtml(r.region || '-')}</td><td class="text-center">${escHtml(r.rep)}</td><td class="text-center">${r.qty}</td>
+                        <td>${escHtml(r.store)}${stTag}${r.manualAdded ? ' <span style="font-size:10px; font-weight:700; background:#eff6ff; color:#1d4ed8; border:1px solid #93c5fd; border-radius:4px; padding:1px 6px;">수동 추가 ' + r.months + '개월</span>' : ''}</td><td class="text-center">${escHtml(r.region || '-')}</td><td class="text-center">${escHtml(r.rep)}</td><td class="text-center">${r.qty}</td>
                         <td class="text-right">${vsNum(r.bill)}</td><td class="text-right">${vsNum(r.payback)}</td>
                         ${r.cells.map(x => `<td class="text-center">${csCellHtml(x, r.bill)}</td>`).join('')}
                         <td class="text-right" style="font-weight:700; color:${r.settle ? '#4f46e5' : '#94a3b8'};">${vsNum(r.settle)}</td>
                         ${i === 0 ? `<td rowspan="${rs.length}" class="text-right" style="vertical-align:middle; font-weight:800; color:${g.settle ? '#1d4ed8' : '#94a3b8'}; background:#eff6ff; border-left:1px solid #e2e8f0;">${g.settle ? vsNum(g.settle) : '-'}</td>` : ''}
+                        <td class="text-center">${canAct ? `<button class="btn-action" style="color:#dc2626;" onclick="csRemoveRow('${escHtml(r.key)}')">${r.manualAdded && r.state === '수동' ? '추가취소' : '제외'}</button>` : ''}</td>
                     </tr>`;
                 });
             });
-            document.getElementById('csDetailBody').innerHTML = html || '<tr><td colspan="12" style="text-align:center; color:#94a3b8; padding:24px;">조건에 맞는 매장이 없습니다.</td></tr>';
+            document.getElementById('csDetailBody').innerHTML = html || '<tr><td colspan="13" style="text-align:center; color:#94a3b8; padding:24px;">조건에 맞는 매장이 없습니다.</td></tr>';
         }
         function csSetStatus(s) { csFilter.status = s; document.getElementById('csStatusSel').value = s; csRenderDetail(); document.getElementById('csDetailHead').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
         function csSetAgency(i) {
@@ -5718,6 +5761,85 @@
             document.getElementById('csAgencySel').value = csFilter.agency;
             csRenderDetail();
             document.getElementById('csDetailHead').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        /* ---------- 수동 추가 / 제외 (월별, 고객 정보는 바뀌지 않음) ---------- */
+        function csExcludeReason(c, ym) {
+            let key = vsSafeKey(c.no);
+            let ms = ((vsSettle.commManual || {})[ym] || {})[key];
+            if (ms === 'remove') return '수동 제외됨 (자동 기준으로는 정산 대상)';
+            if (c.status === '해지') return '해지 매장 · 최근 3개월 청구/입금 내역 없음';
+            if (c.status !== '사용') return `계약상태가 '${c.status || '-'}'`;
+            return `${csYmLabel(ym)} 청구관리/수금관리에 청구금액이 없음`;
+        }
+        function csOpenAddModal() {
+            vsNormalize();
+            if (csIsConfirmed(csCurrentMonth)) { alert('확정된 정산입니다. 관리자가 확정을 해제한 뒤 수정할 수 있습니다.'); return; }
+            document.getElementById('csAddSearch').value = '';
+            document.getElementById('csAddMonths').value = 1;
+            openModal('csAddModal');
+            csRenderAddList();
+        }
+        function csRenderAddList() {
+            let ym = csCurrentMonth;
+            let q = (document.getElementById('csAddSearch').value || '').toLowerCase().trim();
+            let incl = new Set(csBuildRows(ym).map(r => r.key));
+            let list = customerDataList.filter(c => c.type === 'AI스캐너' && !incl.has(vsSafeKey(c.no)))
+                .filter(c => !q || [c.name, c.excelName, c.no, c.agencyName, c.agency, c.supplier].join(' ').toLowerCase().includes(q));
+            list.sort((a, b) => ((a.status === '사용' ? 0 : 1) - (b.status === '사용' ? 0 : 1)) ||
+                String(a.excelName || a.name || '').localeCompare(String(b.excelName || b.name || ''), 'ko'));
+            document.getElementById('csAddTitle').innerText = `➕ 영업수수료 정산 매장 추가 (${csYmLabel(ym)})`;
+            document.getElementById('csAddCount').innerText = `현재 정산에서 빠져 있는 AI스캐너 매장 ${vsNum(list.length)}곳`;
+            document.getElementById('csAddBody').innerHTML = list.length ? list.map(c => {
+                let key = vsSafeKey(c.no), isUse = c.status === '사용';
+                return `<tr>
+                    <td class="text-center"><input type="checkbox" class="cs-add-check" value="${escHtml(key)}"></td>
+                    <td>${escHtml(c.agencyName || c.agency || c.supplier || '-')}</td>
+                    <td style="font-weight:700;">${escHtml(c.excelName || c.name || '-')}</td>
+                    <td class="text-center"><span class="vs-op-select ${isUse ? 'op-bill' : 'op-end'}">${escHtml(c.status || '-')}</span></td>
+                    <td class="text-right">${vsNum(c.commission || 0)}</td>
+                    <td style="font-size:11.5px; color:#c2410c;">${escHtml(csExcludeReason(c, ym))}</td>
+                    <td class="text-center"><button class="btn-action" style="color:#2563eb;" onclick="csAddKeys(['${escHtml(key)}'])">추가</button></td>
+                </tr>`;
+            }).join('') : '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">추가할 수 있는 매장이 없습니다.</td></tr>';
+            let all = document.getElementById('csAddAll'); if (all) all.checked = false;
+        }
+        function csToggleAddAll(m) { document.querySelectorAll('#csAddBody .cs-add-check').forEach(cb => cb.checked = m.checked); }
+        function csAddSelected() {
+            let keys = Array.from(document.querySelectorAll('#csAddBody .cs-add-check:checked')).map(cb => cb.value);
+            if (!keys.length) { alert('추가할 매장을 선택해 주세요.'); return; }
+            csAddKeys(keys);
+        }
+        function csAddKeys(keys) {
+            vsNormalize();
+            let ym = csCurrentMonth;
+            if (csIsConfirmed(ym)) { alert('확정된 정산입니다. 관리자가 확정을 해제한 뒤 수정할 수 있습니다.'); return; }
+            let months = parseInt(document.getElementById('csAddMonths').value);
+            if (!(months >= 1 && months <= 12)) { alert('정산 개월 수는 1~12 사이로 입력해 주세요.'); return; }
+            if (!vsSettle.commManual[ym]) vsSettle.commManual[ym] = {};
+            let n = 0;
+            keys.forEach(k => {
+                let c = customerDataList.find(x => x.type === 'AI스캐너' && vsSafeKey(x.no) === k);
+                if (!c) return;
+                delete vsSettle.commManual[ym][k];                       // 자동 기준으로 대상이면 제외만 해제
+                if (!csBuildRows(ym).some(r => r.key === k)) vsSettle.commManual[ym][k] = { add: true, months: months };
+                n++;
+            });
+            if (!Object.keys(vsSettle.commManual[ym]).length) delete vsSettle.commManual[ym];
+            if (n) { vsSave(); renderCommissionSettle(); csRenderAddList(); }
+        }
+        function csRemoveRow(key) {
+            vsNormalize();
+            let ym = csCurrentMonth;
+            if (csIsConfirmed(ym)) { alert('확정된 정산입니다. 관리자가 확정을 해제한 뒤 수정할 수 있습니다.'); return; }
+            let r = csBuildRows(ym).find(x => x.key === key);
+            if (!r) return;
+            let added = !!r.manualAdded;
+            if (!confirm(added ? `[${r.store}] 수동 추가를 취소할까요?` : `[${r.store}] 매장을 ${csYmLabel(ym)} 정산에서 제외할까요?\n(고객 정보는 바뀌지 않으며, [+ 매장 추가]에서 다시 추가할 수 있습니다)`)) return;
+            if (!vsSettle.commManual[ym]) vsSettle.commManual[ym] = {};
+            if (added && r.state === '수동') delete vsSettle.commManual[ym][key];
+            else vsSettle.commManual[ym][key] = 'remove';
+            if (!Object.keys(vsSettle.commManual[ym]).length) delete vsSettle.commManual[ym];
+            vsSave(); renderCommissionSettle();
         }
         function csChangeMonth(ym) { csCurrentMonth = ym; csFilter = { q: '', status: 'ALL', agency: 'ALL', region: 'ALL' }; renderCommissionSettle(); }
         function csGenPrev() {
