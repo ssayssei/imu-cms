@@ -5919,7 +5919,7 @@
             D.groups.forEach(g => {
                 g.rows.forEach((r, i) => {
                     let top = i === 0 ? 'border-top:2px solid #475569;' : '';
-                    body += `<tr style="page-break-inside:avoid;"><td style="${td} ${top}">${escHtml(g.agency)}</td><td style="${td} ${top}">${escHtml(r.store)}</td><td style="${td} ${top} text-align:center;">${r.qty}</td><td style="${td} ${top} ${tr}">${vsNum(r.payback)}</td>${r.cells.map(x => `<td style="${td} ${top} ${typeof csCellText(x) === 'number' ? tr : 'text-align:center;'}">${typeof csCellText(x) === 'number' ? vsNum(csCellText(x)) : csCellText(x)}</td>`).join('')}<td style="${td} ${top} ${tr}">${vsNum(r.settle)}</td><td style="${td} ${top} ${tr} font-weight:800;">${i === 0 ? vsNum(g.settle) : ''}</td></tr>`;
+                    body += `<tr style="page-break-inside:avoid;">${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} font-weight:700; vertical-align:middle; background:#f8fafc;">${escHtml(g.agency)}</td>` : ''}<td style="${td} ${top}">${escHtml(r.store)}</td><td style="${td} ${top} text-align:center;">${r.qty}</td><td style="${td} ${top} ${tr}">${vsNum(r.payback)}</td>${r.cells.map(x => `<td style="${td} ${top} ${typeof csCellText(x) === 'number' ? tr : 'text-align:center;'}">${typeof csCellText(x) === 'number' ? vsNum(csCellText(x)) : csCellText(x)}</td>`).join('')}<td style="${td} ${top} ${tr}">${vsNum(r.settle)}</td>${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} ${tr} font-weight:800; vertical-align:middle; background:#eff6ff;">${vsNum(g.settle)}</td>` : ''}</tr>`;
                 });
             });
             return `<div style="${outer}">
