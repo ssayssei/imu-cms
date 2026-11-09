@@ -3398,6 +3398,7 @@
                         }
                         ensureValidUserList();
                         billDedupe();
+                        custFixIdx();
                         try { authResolveUser(true); } catch (e) { console.warn(e); }
                         custEditLogMap = data.custLogs || custEditLogMap;
                         payEditLogMap = data.payLogs || payEditLogMap;
@@ -3450,6 +3451,18 @@
             if (no) renderPaymentModalContent(no);
         }
 
+        // 고객 NO.(idx): 타임스탬프 같은 큰 값은 제외하고 연번 이어가기
+        function custNextIdx() {
+            let mx = 0;
+            customerDataList.forEach(c => { const v = Number(c.idx) || 0; if (v < 1e9 && v > mx) mx = v; });
+            return mx + 1;
+        }
+        function custFixIdx() {
+            try {
+                customerDataList.forEach(c => { if ((Number(c.idx) || 0) >= 1e9) c.idx = custNextIdx(); });
+            } catch (e) { console.warn('NO. 정리 실패', e); }
+        }
+
         // 같은 회원번호+청구월 중복 청구 제거 (첫 건만 유지)
         function billDedupe() {
             try {
@@ -3465,6 +3478,7 @@
 
         function syncToFirebase() {
             billDedupe();
+            custFixIdx();
             saveLocalStorage();
             try {
                 if (!firebase.auth().currentUser) return;   // 로그인 전에는 서버에 쓰지 않음
@@ -8367,7 +8381,7 @@
             }
 
             customerDataList.unshift({
-                idx: Date.now(),
+                idx: custNextIdx(),
                 no: cleanNo,
                 name: name,
                 phone: document.getElementById('m_phone').value.trim(),
