@@ -1295,6 +1295,7 @@
                                     <th class="sortable" onclick="sortTable('bizNo', 'aiScannerCustomer')">사업자번호 <span class="sort-indicator" id="aisort_bizNo"></span></th>
                                     <th class="sortable" onclick="sortTable('region', 'aiScannerCustomer')">지역 <span class="sort-indicator" id="aisort_region"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'aiScannerCustomer')">영업대표 <span class="sort-indicator" id="aisort_manager"></span></th>
+                                    <th class="sortable" onclick="sortTable('agencyTax', 'aiScannerCustomer')">대리점 세금계산서 담당 <span class="sort-indicator" id="aisort_agencyTax"></span></th>
                                     <th class="text-center">관련서류</th>
                                     <th class="text-center">상담내역</th>
                                 </tr>
@@ -1766,6 +1767,34 @@
                 </div>
             </div>
 
+            <!-- [영업수수료] 세금계산서 발행 요청 문자/메일 -->
+            <div id="csInvModal" class="modal-overlay">
+                <div class="modal-card modal-card-large" style="width: 1000px; max-height: 92vh; overflow:auto;">
+                    <div class="modal-header">
+                        <span id="csInvTitle">✉️ 세금계산서 발행 요청 문자/메일</span>
+                        <span style="cursor:pointer;" onclick="closeModal('csInvModal')">✕</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px 12px; margin-bottom:10px;">
+                        <label style="font-size:11.5px; color:#475569;">발행 요청 일자<input type="text" id="csInvDate" oninput="csRenderInvList()" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; margin-top:3px;"></label>
+                        <label style="font-size:11.5px; color:#475569;">발행 마감 (예: 10일(화))<input type="text" id="csInvDue" oninput="csRenderInvList()" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; margin-top:3px;"></label>
+                        <label style="font-size:11.5px; color:#475569;">발행 요청 메일 주소<input type="text" id="csInvMail" value="psei@imupos.com" oninput="csRenderInvList()" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; margin-top:3px;"></label>
+                        <label style="font-size:11.5px; color:#475569;">품목명<input type="text" id="csInvItem" oninput="csRenderInvList()" style="width:100%; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; margin-top:3px;"></label>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <span id="csInvCount" style="font-size:12px; color:#64748b; flex:1;"></span>
+                        <button class="btn btn-excel" onclick="csInvDownload()">엑셀 다운로드</button>
+                    </div>
+                    <div style="max-height:52vh; overflow:auto; border:1px solid #e2e8f0; border-radius:6px;">
+                        <table>
+                            <thead><tr><th>대리점</th><th>가맹점명</th><th>연락처 (문자)</th><th>이메일</th><th class="text-right">정산금액</th><th>문자/메일 내용</th><th class="text-center" style="width:120px;">복사</th></tr></thead>
+                            <tbody id="csInvBody"></tbody>
+                        </table>
+                    </div>
+                    <div style="font-size:11px; color:#64748b; margin-top:8px; line-height:1.6;">※ 정산금액이 0원인 대리점은 제외됩니다. 공급가액 = 정산금액÷1.1(반올림), 세액 = 합계−공급가액. 연락처/이메일은 대리점 관리의 세금계산서 담당자 정보를 사용합니다. 선택한 월의 정산 데이터를 기준으로 하며, 확정 전에도 현재 계산값으로 만들어집니다.</div>
+                    <div style="display:flex; justify-content:flex-end; margin-top:10px;"><button class="btn btn-outline" onclick="closeModal('csInvModal')">닫기</button></div>
+                </div>
+            </div>
+
             <div id="csExpenseModal" class="modal-overlay">
                 <div class="modal-card modal-card-large" style="width: 920px; max-height: 92vh; overflow:auto;">
                     <div class="modal-header">
@@ -1830,6 +1859,7 @@
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
                         <button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="csOpenExpense()">📄 정산내역서</button>
+                        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="csOpenInvMsg()">✉️ 세금계산서 요청 문자/메일</button>
                         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="csOpenHistory()">🕘 확정 이력</button>
                         <button class="btn btn-primary" id="csConfirmBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csConfirmMonth()">✅ 정산 확정</button>
                         <button class="btn btn-outline" id="csUnconfirmBtn" style="font-size:12px; padding:6px 12px; display:none; color:#dc2626; border-color:#fca5a5;" onclick="csUnconfirmMonth()">🔓 확정 해제</button>
@@ -5845,6 +5875,76 @@
             if (!Object.keys(vsSettle.commManual[ym]).length) delete vsSettle.commManual[ym];
             vsSave(); renderCommissionSettle();
         }
+        /* ---------- 세금계산서 발행 요청 문자/메일 ---------- */
+        let csInvRows = [];
+        function csOpenInvMsg() {
+            vsNormalize();
+            if (!csCurrentMonth) { alert('먼저 정산 월을 선택해 주세요.'); return; }
+            let ym = csCurrentMonth, now = new Date();
+            let el = id => document.getElementById(id);
+            el('csInvDate').value = `${now.getFullYear()}년 ${String(now.getMonth() + 1).padStart(2, '0')}월 ${String(now.getDate()).padStart(2, '0')}일`;
+            let y = +ym.slice(0, 4), m = +ym.slice(5, 7);
+            let due = new Date(y, m, 10);                                   // 정산월 다음 달 10일
+            el('csInvDue').value = `${due.getDate()}일(${'일월화수목금토'[due.getDay()]})`;
+            el('csInvItem').value = '영업수수료_' + ym.slice(2, 4) + ym.slice(5, 7);
+            openModal('csInvModal');
+            csRenderInvList();
+        }
+        function csInvMessage(agency, stores, amt, o) {
+            let supply = Math.round(amt / 1.1), tax = amt - supply, f = n => vsNum(n);
+            return ['안녕하세요. 아임유입니다.',
+                'AI스캐너 영업수수료 정산을 위한 세금계산서 발행 요청 드립니다.',
+                '대리점명: ' + agency,
+                '가맹점명: ' + (stores || agency),
+                '',
+                '-세금계산서 항목',
+                '공급가액: ' + f(supply) + '원',
+                '세액: ' + f(tax) + '원',
+                '합계: ' + f(amt) + '원',
+                '발행 요청 메일 주소: ' + o.mail,
+                '품목명: ' + o.item,
+                '발행 요청 일자: ' + o.date,
+                '요청 사항: 비고란에 입금 받으실 계좌 번호 기입 부탁드립니다.',
+                '',
+                '빠른 정산을 위해 ' + o.due + '까지 필히 발행 요청 드립니다.',
+                '감사합니다.'].join('\n');
+        }
+        function csRenderInvList() {
+            let v = id => (document.getElementById(id).value || '').trim();
+            let o = { date: v('csInvDate'), due: v('csInvDue'), mail: v('csInvMail'), item: v('csInvItem') };
+            let ym = csCurrentMonth;
+            csInvRows = csGroup(csBuildRows(ym)).filter(g => g.settle > 0).map(g => {
+                let t = custAgencyTax({ agencyBizNo: g.biz, agencyName: g.agency });
+                let pay = g.rows.filter(r => r.settle > 0).map(r => r.store);
+                let stores = pay.join(', ');
+                return { agency: g.agency, stores: stores, phone: t.phone, email: t.email, amt: g.settle, msg: csInvMessage(g.agency, stores, g.settle, o) };
+            });
+            document.getElementById('csInvTitle').innerText = `✉️ 세금계산서 발행 요청 문자/메일 (${csYmLabel(ym)} 정산)`;
+            document.getElementById('csInvCount').innerText = `발송 대상 ${vsNum(csInvRows.length)}개 대리점 · 연락처 없음 ${vsNum(csInvRows.filter(r => !r.phone && !r.email).length)}곳`;
+            document.getElementById('csInvBody').innerHTML = csInvRows.length ? csInvRows.map((r, i) => `<tr>
+                <td style="font-weight:700;">${escHtml(r.agency)}</td>
+                <td style="font-size:12px;">${escHtml(r.stores)}</td>
+                <td>${r.phone ? escHtml(r.phone) : '<span style="color:#e11d48;">번호없음</span>'}</td>
+                <td style="font-size:12px;">${r.email ? escHtml(r.email) : '-'}</td>
+                <td class="text-right" style="font-weight:700;">${vsNum(r.amt)}</td>
+                <td><pre style="white-space:pre-wrap; margin:0; font:inherit; font-size:11px; max-height:64px; overflow:auto; color:#334155;">${escHtml(r.msg)}</pre></td>
+                <td class="text-center"><button class="btn-action" onclick="copyText(csInvRows[${i}].msg, '문자 내용')">내용</button>${r.phone ? ` <button class="btn-action" onclick="copyText(csInvRows[${i}].phone, '연락처')">번호</button>` : ''}</td>
+            </tr>`).join('') : '<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">정산금이 있는 대리점이 없습니다.</td></tr>';
+        }
+        function csInvDownload() {
+            if (!csInvRows.length) { alert('다운로드할 대상이 없습니다.'); return; }
+            let rows = csInvRows.map(r => ({
+                '대리점명': r.agency, '가맹점명': r.stores, '휴대폰번호': r.phone || '번호없음', '이메일': r.email || '',
+                '정산금액(VAT포함)': r.amt, '공급가액': Math.round(r.amt / 1.1), '세액': r.amt - Math.round(r.amt / 1.1),
+                '요청 안내문자 (복사용)': r.msg
+            }));
+            let ws = XLSX.utils.json_to_sheet(rows);
+            ws['!cols'] = [{ wch: 18 }, { wch: 34 }, { wch: 15 }, { wch: 26 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 70 }];
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '세금계산서 요청');
+            XLSX.writeFile(wb, `AI스캐너_세금계산서요청_${csCurrentMonth.replace('-', '')}.xlsx`);
+        }
+
         function csChangeMonth(ym) { csCurrentMonth = ym; csFilter = { q: '', status: 'ALL', agency: 'ALL', region: 'ALL' }; renderCommissionSettle(); }
         function csGenPrev() {
             let ym = (document.getElementById('csGenBtn').dataset || {}).ym;
@@ -6535,7 +6635,7 @@
                 cols: ['', 'NO.', '대리점명', '대리점 사업자번호', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '세금계산서 담당', '관련서류', '상담내역'],
                 hidden: ['납부자 휴대전화', '세금계산서 담당'] },   // 약정일·회원구분·납품처명·사업자번호는 기본 표시
             aiCustomer: { table: 'aiCustomerTable', title: 'AI스캐너 고객관리',
-                cols: ['', 'NO.', '엑셀명', '대리점명', 'Viscovery명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '수량', 'Viscovery수수료', '영업수수료', '납품처명', '사업자번호', '지역', '영업대표', '관련서류', '상담내역'],
+                cols: ['', 'NO.', '엑셀명', '대리점명', 'Viscovery명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '수량', 'Viscovery수수료', '영업수수료', '납품처명', '사업자번호', '지역', '영업대표', '대리점 세금계산서 담당', '관련서류', '상담내역'],
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호'] },
             pbCustomer: { table: 'pbCustTable', title: '페이백 고객관리',
                 cols: ['', 'NO.', '대리점명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '페이백금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '서류등록', '상담내역'],
@@ -6635,6 +6735,7 @@
                 let valB = b[key] !== undefined ? b[key] : '';
 
                 if (key === 'region') { valA = custRegion(a); valB = custRegion(b); }
+                if (key === 'agencyTax') { let ta = custAgencyTax(a), tb = custAgencyTax(b); valA = ta.name + ' ' + ta.phone; valB = tb.name + ' ' + tb.phone; }
                 if (type === 'payment') {
                     let payA = getYearlySummary(a.no, currentModalYear);
                     let payB = getYearlySummary(b.no, currentModalYear);
@@ -6971,6 +7072,36 @@
             document.getElementById('selectAllCustomer').checked = false;
         }
 
+        // 클릭하면 클립보드로 복사 + 잠깐 안내
+        function copyText(text, label) {
+            const done = () => {
+                let t = document.createElement('div');
+                t.textContent = `${label || '내용'} 복사됨: ${text}`;
+                t.style.cssText = 'position:fixed; left:50%; bottom:40px; transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; z-index:999999; box-shadow:0 4px 14px rgba(0,0,0,.25);';
+                document.body.appendChild(t); setTimeout(() => t.remove(), 1600);
+            };
+            const fallback = () => {
+                let ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed; opacity:0;';
+                document.body.appendChild(ta); ta.select();
+                try { document.execCommand('copy'); done(); } catch (e) { alert('복사 실패: ' + text); }
+                ta.remove();
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
+            else fallback();
+        }
+
+        // 매장의 대리점 세금계산서 담당자 (대리점 사업자번호 → 대리점명 순으로 대리점 관리 정보 조회)
+        function custAgencyTax(c) {
+            let a = null;
+            let k = cleanBizNo(c.agencyBizNo);
+            if (k && taxContactMap[k]) a = taxContactMap[k];
+            if (!a && (c.agencyName || c.agency)) {
+                let nm = String(c.agencyName || c.agency).trim().toLowerCase();
+                a = Object.values(taxContactMap).find(x => x && String(x.agencyName || '').trim().toLowerCase() === nm) || null;
+            }
+            return { name: (a && a.taxName) || '', phone: (a && a.taxPhone) || '', email: (a && a.taxEmail) || '' };
+        }
+
         function renderAiScannerCustomerTable(dataList) {
             let tbody = "";
             dataList.forEach((item) => {
@@ -7009,6 +7140,7 @@
                     <td>${item.bizNo || '-'}</td>
                     <td>${custRegion(item)}</td>
                     <td>${item.manager || '-'}</td>
+                    <td>${(() => { let t = custAgencyTax(item); return (t.name || t.phone || t.email) ? `<div style="font-weight:600;">${escHtml(t.name || '-')}</div><div class="sub-text">${t.phone ? `<span style="color:#2563eb; cursor:copy; border-bottom:1px dotted #2563eb;" title="클릭하면 번호가 복사됩니다 (위사 문자발송에 붙여넣기)" onclick="event.stopPropagation(); copyText('${escHtml(t.phone)}', '연락처')">${escHtml(t.phone)}</span> <a href="sms:${escHtml(String(t.phone).replace(/[^0-9+]/g, ''))}" title="문자 보내기 (휴대폰/Phone Link 연결 시)" onclick="event.stopPropagation()" style="text-decoration:none;">💬</a>` : '-'}${t.email ? ` <a href="mailto:${escHtml(t.email)}" title="${escHtml(t.email)}" onclick="event.stopPropagation()" style="text-decoration:none;">✉️</a>` : ''}</div>` : '-'; })()}</td>
                     <td class="text-center"><button class="btn-action" onclick="openDocModal('${item.no}')">서류등록</button></td>
                     <td class="text-center"><button class="btn-action" onclick="openCounselModal('${item.no}')">상담내역</button></td>
                 </tr>`;
@@ -8393,7 +8525,9 @@
                     '사업자번호': item.bizNo || '-',
                     '지역': custRegion(item),
                     '주소': item.address || '-',
-                    '영업대표': item.manager || '-'
+                    '영업대표': item.manager || '-',
+                    '대리점 세금계산서 담당자': custAgencyTax(item).name || '-',
+                    '대리점 세금계산서 담당자 연락처': custAgencyTax(item).phone || '-'
                 }));
                 var ws = XLSX.utils.json_to_sheet(excelRows);
                 var wb = XLSX.utils.book_new();
