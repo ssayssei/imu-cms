@@ -1193,7 +1193,6 @@
                                     <th class="sortable" onclick="sortTable('region', 'customer')">지역 <span class="sort-indicator" id="csort_region"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'customer')">영업대표 <span class="sort-indicator" id="csort_manager"></span></th>
                                     <th class="text-center">세금계산서 담당</th>
-                                    <th class="text-center">관련서류</th>
                                     <th class="text-center">상담내역</th>
                                 </tr>
                             </thead>
@@ -1296,7 +1295,6 @@
                                     <th class="sortable" onclick="sortTable('region', 'aiScannerCustomer')">지역 <span class="sort-indicator" id="aisort_region"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'aiScannerCustomer')">영업대표 <span class="sort-indicator" id="aisort_manager"></span></th>
                                     <th class="sortable" onclick="sortTable('agencyTax', 'aiScannerCustomer')">대리점 세금계산서 담당 <span class="sort-indicator" id="aisort_agencyTax"></span></th>
-                                    <th class="text-center">관련서류</th>
                                     <th class="text-center">상담내역</th>
                                 </tr>
                             </thead>
@@ -1966,7 +1964,6 @@
                                 <th class="sortable" onclick="pbCustSort('bizNo')">사업자번호 <span class="sort-indicator" id="pbcs_bizNo"></span></th>
                                 <th class="sortable" onclick="pbCustSort('region')">지역 <span class="sort-indicator" id="pbcs_region"></span></th>
                                 <th class="sortable" onclick="pbCustSort('manager')">영업대표 <span class="sort-indicator" id="pbcs_manager"></span></th>
-                                <th class="text-center">서류등록</th>
                                 <th class="text-center">상담내역</th>
                             </tr></thead>
                             <tbody id="pbCustBody"></tbody>
@@ -6261,7 +6258,6 @@
                     <td>${escHtml(r.bizNo || '-')}</td>
                     <td>${escHtml(r.region || '-')}</td>
                     <td>${escHtml(r.manager || '-')}</td>
-                    <td class="text-center" onclick="event.stopPropagation()"><button class="btn-action" onclick="openDocModal('${escHtml(c.no)}')">서류등록</button></td>
                     <td class="text-center" onclick="event.stopPropagation()"><button class="btn-action" onclick="openCounselModal('${escHtml(c.no)}')">상담내역</button></td>
                 </tr>`;
             }).join('') : '<tr><td colspan="17" style="text-align:center; color:#94a3b8; padding:30px;">페이백 매장이 없습니다. 위 검색창에서 회원번호 또는 회원명을 검색해 추가하세요.</td></tr>';
@@ -6528,7 +6524,7 @@
             sec.push(`<div class="dr-sec"><h4>최근 수금 현황</h4>${months.length ? `<table style="width:100%;"><thead><tr><th>월</th><th class="text-right">청구</th><th class="text-right">입금</th></tr></thead><tbody>${months.map(m => `<tr><td>${m}</td><td class="text-right">${(pm[m].amount || 0).toLocaleString()}</td><td class="text-right" style="color:${payUnpaidFor(no, m, pm[m].amount || 0) === 0 ? '#059669' : '#dc2626'};">${payCashSum(no, m).toLocaleString()}</td></tr>`).join('')}</tbody></table>` : '<div style="font-size:12px; color:#94a3b8;">수금 내역이 없습니다.</div>'}</div>`);
             let logs = (custEditLogMap[no] || []).slice(0, 4);
             sec.push(`<div class="dr-sec"><h4>최근 수정 이력</h4>${logs.length ? logs.map(l => `<div style="font-size:11.5px; color:#475569; padding:3px 0; border-bottom:1px dashed #f1f5f9;">${l}</div>`).join('') : '<div style="font-size:12px; color:#94a3b8;">수정이력이 없습니다.</div>'}</div>`);
-            sec.push(`<div class="dr-actions"><button class="btn btn-primary editable-only" style="font-size:12px; padding:6px 12px;" onclick="openDetailModal(${c.idx})">정보 수정</button><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="openCounselModal('${escHtml(c.no)}')">상담내역</button><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="openDocModal('${escHtml(c.no)}')">관련서류</button></div>`);
+            sec.push(`<div class="dr-actions"><button class="btn btn-primary editable-only" style="font-size:12px; padding:6px 12px;" onclick="openDetailModal(${c.idx})">정보 수정</button><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="openCounselModal('${escHtml(c.no)}')">상담내역</button></div>`);
             document.getElementById('drawerBody').innerHTML = sec.join('');
         }
         function drawerRenderAgency(k) {
@@ -6645,13 +6641,13 @@
         /* ===== 열 선택 (표별로 보이는 열을 고르고 브라우저에 기억) ===== */
         const COLVIS = {
             customer: { table: 'customerTable', title: '고객관리',
-                cols: ['', 'NO.', '대리점명', '대리점 사업자번호', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '세금계산서 담당', '관련서류', '상담내역'],
+                cols: ['', 'NO.', '대리점명', '대리점 사업자번호', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '세금계산서 담당', '상담내역'],
                 hidden: ['납부자 휴대전화', '세금계산서 담당'] },   // 약정일·회원구분·납품처명·사업자번호는 기본 표시
             aiCustomer: { table: 'aiCustomerTable', title: 'AI스캐너 고객관리',
-                cols: ['', 'NO.', '엑셀명', '대리점명', 'Viscovery명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '수량', 'Viscovery수수료', '영업수수료', '납품처명', '사업자번호', '지역', '영업대표', '대리점 세금계산서 담당', '관련서류', '상담내역'],
+                cols: ['', 'NO.', '엑셀명', '대리점명', 'Viscovery명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '약정일', '회원구분', '수량', 'Viscovery수수료', '영업수수료', '납품처명', '사업자번호', '지역', '영업대표', '대리점 세금계산서 담당', '상담내역'],
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호'] },
             pbCustomer: { table: 'pbCustTable', title: '페이백 고객관리',
-                cols: ['', 'NO.', '대리점명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '페이백금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '서류등록', '상담내역'],
+                cols: ['', 'NO.', '대리점명', '회원번호', '회원명', '납부자 휴대전화', '계약상태(청구시작일)', '상품금액', '페이백금액', '약정일', '회원구분', '납품처명', '사업자번호', '지역', '영업대표', '상담내역'],
                 hidden: ['납부자 휴대전화', '약정일', '회원구분', '납품처명', '사업자번호'] },
             agency: { table: 'agencyTable', title: '대리점 관리',
                 cols: ['', 'NO.', '사업자번호', '대리점명', '지역', '주소지', '연결 매장수', '세금계산서 담당자명', '담당자 전화번호', '세금계산서 수신 이메일', '비고', '관리'],
@@ -7102,7 +7098,6 @@
                     <td>${custRegion(item)}</td>
                     <td>${item.manager || '-'}</td>
                     <td class="text-center">${taxSummary}</td>
-                    <td class="text-center"><button class="btn-action" onclick="openDocModal('${item.no}')">서류등록</button></td>
                     <td class="text-center"><button class="btn-action" onclick="openCounselModal('${item.no}')">상담내역</button></td>
                 </tr>`;
             });
@@ -7179,7 +7174,6 @@
                     <td>${custRegion(item)}</td>
                     <td>${item.manager || '-'}</td>
                     <td>${(() => { let t = custAgencyTax(item); return (t.name || t.phone || t.email) ? `<div style="font-weight:600;">${escHtml(t.name || '-')}</div><div class="sub-text">${t.phone ? `<span style="color:#2563eb; cursor:copy; border-bottom:1px dotted #2563eb;" title="클릭하면 번호가 복사됩니다 (위사 문자발송에 붙여넣기)" onclick="event.stopPropagation(); copyText('${escHtml(t.phone)}', '연락처')">${escHtml(t.phone)}</span> <a href="sms:${escHtml(String(t.phone).replace(/[^0-9+]/g, ''))}" title="문자 보내기 (휴대폰/Phone Link 연결 시)" onclick="event.stopPropagation()" style="text-decoration:none;">💬</a>` : '-'}</div>${t.email ? `<div class="sub-text"><a href="mailto:${escHtml(t.email)}" title="클릭하면 메일 작성 창이 열립니다" onclick="event.stopPropagation()" style="color:#2563eb; text-decoration:none;">${escHtml(t.email)}</a></div>` : ''}` : '-'; })()}</td>
-                    <td class="text-center"><button class="btn-action" onclick="openDocModal('${item.no}')">서류등록</button></td>
                     <td class="text-center"><button class="btn-action" onclick="openCounselModal('${item.no}')">상담내역</button></td>
                 </tr>`;
             });
