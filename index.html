@@ -1404,6 +1404,11 @@
                         </div>
                         <div class="summary-total-divider"></div>
                         <div class="summary-total-item">
+                            <span class="summary-total-label">누적 미납금액 (8월~)</span>
+                            <span class="summary-total-value" id="paySum_cum" style="color:#b91c1c;">0 원</span>
+                        </div>
+                        <div class="summary-total-divider"></div>
+                        <div class="summary-total-item">
                             <span class="summary-total-label">총 과입금액</span>
                             <span class="summary-total-value" id="paySum_over" style="color:#2563eb;">0 원</span>
                         </div>
@@ -1417,12 +1422,14 @@
                                     <th class="sortable" onclick="sortTable('no', 'payment')">회원번호 <span class="sort-indicator" id="psort_no"></span></th>
                                     <th class="sortable" onclick="sortTable('name', 'payment')">회원명 <span class="sort-indicator" id="psort_name"></span></th>
                                     <th class="sortable" onclick="sortTable('status', 'payment')">계약상태 <span class="sort-indicator" id="psort_status"></span></th>
+                                    <th class="text-center sortable" onclick="sortTable('contractDay', 'payment')">약정일 <span class="sort-indicator" id="psort_contractDay"></span></th>
                                     <th class="sortable" onclick="sortTable('supplier', 'payment')">납품처명 <span class="sort-indicator" id="psort_supplier"></span></th>
                                     <th class="sortable" onclick="sortTable('bizNo', 'payment')">사업자번호 <span class="sort-indicator" id="psort_bizNo"></span></th>
                                     <th class="sortable" onclick="sortTable('manager', 'payment')">영업대표 <span class="sort-indicator" id="psort_manager"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('amount', 'payment')">청구금액 (결제일) <span class="sort-indicator" id="psort_amount"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('paid', 'payment')">수납금액 (정산일) <span class="sort-indicator" id="psort_paid"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('unpaid', 'payment')">미납금액 <span class="sort-indicator" id="psort_unpaid"></span></th>
+                                    <th class="text-right sortable" onclick="sortTable('unpaidTotal', 'payment')" title="2026-08부터 선택한 월까지 미납 합계">누적 미납금액 <span class="sort-indicator" id="psort_unpaidTotal"></span></th>
                                 </tr>
                             </thead>
                             <tbody id="payment-table-body"></tbody>
@@ -6742,6 +6749,7 @@
 
                     if (key === 'paid') valA = payA.paid, valB = payB.paid;
                     else if (key === 'unpaid') valA = payA.unpaid, valB = payB.unpaid;
+                    else if (key === 'unpaidTotal') { valA = payCumUnpaid(a.no, window._payCurYm || '2026-08').amt; valB = payCumUnpaid(b.no, window._payCurYm || '2026-08').amt; }
                 }
 
                 if (typeof valA === 'number' && typeof valB === 'number') {
@@ -6896,9 +6904,25 @@
             filterPaymentTable();
         }
 
+        /* 2026-08 ~ 선택 월까지 미납 합계와 미납 개월 수 */
+        function payCumUnpaid(no, uptoYm) {
+            let amt = 0, n = 0, y = 2026, m = 8;
+            while (`${y}-${String(m).padStart(2, '0')}` <= uptoYm) {
+                let M = `${y}-${String(m).padStart(2, '0')}`;
+                let bi = getBillingInfoForMonth(no, M);
+                let pm = paymentDataMap[normalizeMemberNo(no)] || paymentDataMap[no] || {};
+                let b = (bi.amount !== null) ? bi.amount : ((pm[M] && pm[M].amount) || 0);
+                let u = payUnpaidFor(no, M, b);
+                if (u > 0) { amt += u; n++; }
+                m++; if (m > 12) { m = 1; y++; }
+            }
+            return { amt: amt, n: n };
+        }
+
         function renderPaymentTableContent(dataList, curMonthVal) {
+            window._payCurYm = curMonthVal;
             let tbody = "";
-            let sums = { bill: 0, paid: 0, unpaid: 0, over: 0 };
+            let sums = { bill: 0, paid: 0, unpaid: 0, over: 0, cum: 0 };
             let count = dataList.length;
 
             dataList.forEach(item => {
@@ -6932,17 +6956,24 @@
 
                 let statusBadge = item.status === '사용' ? '<span class="badge-status badge-use">사용</span>' : '<span class="badge-status badge-stop">'+item.status+'</span>';
 
+                let cum = payCumUnpaid(item.no, curMonthVal);
+                sums.cum += cum.amt;
+                let cumDisplay = cum.amt > 0
+                    ? `<span style="color:#dc2626; font-weight:800; font-size:12px;">${cum.amt.toLocaleString()}</span>${cum.n > 1 ? `<br><span style="font-size:10px; color:#b45309; font-weight:700;">${cum.n}개월 미납</span>` : ''}`
+                    : '-';
                 tbody += `<tr>
                     <td class="text-center">${item.idx}</td>
                     <td class="clickable-cell" onclick="openPaymentDetailModal('${item.no}')" style="color:#2563eb; text-decoration:underline;">${item.no}</td>
                     <td>${item.name}</td>
                     <td>${statusBadge}</td>
+                    <td class="text-center">${item.contractDay ? item.contractDay + '일' : '-'}</td>
                     <td>${item.supplier || '-'}</td>
                     <td>${item.bizNo || '-'}</td>
                     <td>${item.manager || '-'}</td>
                     <td class="text-right">${billDisplay}</td>
                     <td class="text-right">${paidDisplay}</td>
                     <td class="text-right">${unpaidDisplay}</td>
+                    <td class="text-right">${cumDisplay}</td>
                 </tr>`;
             });
 
@@ -6955,6 +6986,7 @@
                 document.getElementById('paySum_bill').innerText = sums.bill.toLocaleString() + ' 원';
                 document.getElementById('paySum_paid').innerText = sums.paid.toLocaleString() + ' 원';
                 document.getElementById('paySum_unpaid').innerText = sums.unpaid.toLocaleString() + ' 원';
+                let cu = document.getElementById('paySum_cum'); if (cu) cu.innerText = sums.cum.toLocaleString() + ' 원';
                 let ov = document.getElementById('paySum_over');
                 if (ov) ov.innerText = sums.over.toLocaleString() + ' 원';
             }
