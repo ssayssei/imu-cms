@@ -1376,9 +1376,15 @@
                     <h3>
                         <span>월별 수금 및 입금 관리 내역</span>
                         <div class="card-actions">
-                            <button class="btn btn-template editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="downloadPaymentTemplate()">양식 다운로드</button>
-                            <button class="btn btn-excel editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="document.getElementById('paymentFileInput').click()">대량업로드</button>
-                            <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openDeleteBatchModal()">회차별삭제</button>
+                            <div class="menu-wrap editable-only">
+                                <button class="btn btn-excel" style="font-size: 12px; padding: 6px 12px;" onclick="toggleMenu(this, event)">📥 대량 작업 ▾</button>
+                                <div class="menu-pop">
+                                    <button onclick="downloadPaymentTemplate()">① 양식 다운로드</button>
+                                    <button onclick="document.getElementById('paymentFileInput').click()">② 엑셀 업로드</button>
+                                    <div class="menu-sep"></div>
+                                    <button class="danger" onclick="openDeleteBatchModal()">회차별 삭제</button>
+                                </div>
+                            </div>
                             <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px; background-color: #b91c1c; border-color: #991b1b;" onclick="resetAllPaymentData()">⚠️ 수금 전체 초기화</button>
                             <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="downloadPaymentExcel()">엑셀 다운로드</button>
                         </div>
@@ -1457,8 +1463,13 @@
                             <button type="button" class="btn btn-outline" style="font-size:12px; padding:5px 10px; white-space:nowrap;" onclick="billOpenHistory()">🕘 마감 이력</button>
                             <button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="billOpenNew()">등록</button>
                             <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="deleteSelectedBillings()">삭제</button>
-                            <button class="btn btn-template editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="downloadBillingTemplate()">양식 다운로드</button>
-                            <button class="btn btn-excel editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="triggerBillingUpload()">대량업로드</button>
+                            <div class="menu-wrap editable-only">
+                                <button class="btn btn-excel" style="font-size: 12px; padding: 6px 12px;" onclick="toggleMenu(this, event)">📥 대량 작업 ▾</button>
+                                <div class="menu-pop">
+                                    <button onclick="downloadBillingTemplate()">① 양식 다운로드</button>
+                                    <button onclick="triggerBillingUpload()">② 엑셀 업로드</button>
+                                </div>
+                            </div>
                             <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="downloadBillingExcel()">엑셀 다운로드</button>
                         </div>
                     </h3>
