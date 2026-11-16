@@ -792,9 +792,10 @@
     <div id="billingModal" class="modal-overlay">
         <div class="modal-card">
             <div class="modal-header">
-                <span>신규 청구 수동 등록</span>
+                <span id="billModalTitle">신규 청구 수동 등록</span>
                 <span style="cursor:pointer;" onclick="closeModal('billingModal')">✕</span>
             </div>
+            <input type="hidden" id="b_edit_idx" value="">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div class="form-group"><label>회원번호</label><input type="text" id="b_no" placeholder="예: 2250279546-00" oninput="autoFillBillingName()" onchange="autoFillBillingName()"></div>
                 <div class="form-group"><label>회원명</label><input type="text" id="b_name" placeholder="회원번호 입력 시 자동으로 불러옵니다"><div id="b_name_hint" style="font-size:11px; margin-top:3px; min-height:14px;"></div></div>
@@ -809,7 +810,7 @@
             </div>
             <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
                 <button class="btn btn-outline" onclick="closeModal('billingModal')">취소</button>
-                <button class="btn btn-primary" onclick="saveManualBilling()">청구 등록 저장</button>
+                <button class="btn btn-primary" id="billSaveBtn" onclick="saveManualBilling()">청구 등록 저장</button>
             </div>
         </div>
     </div>
@@ -1055,6 +1056,9 @@
                 </div>
                 <div class="sub-item" onclick="switchCategory('settleAdmin', this, '관리자맵 > 정산 월 관리')">
                     정산 월 관리
+                </div>
+                <div class="sub-item" onclick="switchCategory('billPayAdmin', this, '관리자맵 > 청구·수금 월 관리')">
+                    청구·수금 월 관리
                 </div>
             </div>
         </div>
@@ -1447,7 +1451,11 @@
                             <select id="billSelectMonth" class="filter-select" style="width:130px;" onchange="billMonthPicked = true; renderBillingTable()">
                                 <option value="ALL">전체 연월</option>
                             </select>
-                            <button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openModal('billingModal')">등록</button>
+                            <span id="billCloseBadge" style="display:none;"></span>
+                            <button type="button" class="btn btn-primary" id="billCloseBtn" style="font-size:12px; padding:5px 10px; white-space:nowrap; display:none;" onclick="billCloseMonth()">🔒 이 달 마감</button>
+                            <button type="button" class="btn btn-outline" id="billOpenBtn" style="font-size:12px; padding:5px 10px; white-space:nowrap; display:none; color:#dc2626; border-color:#fca5a5;" onclick="billOpenMonth()">🔓 마감 해제</button>
+                            <button type="button" class="btn btn-outline" style="font-size:12px; padding:5px 10px; white-space:nowrap;" onclick="billOpenHistory()">🕘 마감 이력</button>
+                            <button class="btn btn-primary editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="billOpenNew()">등록</button>
                             <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="deleteSelectedBillings()">삭제</button>
                             <button class="btn btn-template editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="downloadBillingTemplate()">양식 다운로드</button>
                             <button class="btn btn-excel editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="triggerBillingUpload()">대량업로드</button>
@@ -1489,6 +1497,7 @@
                                     <th class="text-right">청구금액</th>
                                     <th class="text-center">결제일</th>
                                     <th>결제수단</th>
+                                    <th class="text-center" style="width:70px;">관리</th>
                                 </tr>
                             </thead>
                             <tbody id="billing-table-body"></tbody>
@@ -2026,6 +2035,26 @@
                     <div class="table-container"><table>
                         <thead><tr><th>정산 월</th><th>Viscovery</th><th>영업수수료</th><th>페이백</th><th>Viscovery 확정</th></tr></thead>
                         <tbody id="saBody"></tbody>
+                    </table></div>
+                </div>
+            </div>
+
+            <!-- [관리자맵 > 청구·수금 월 관리] 월별 마감 -->
+            <div id="view-billPayAdmin" class="view-section">
+                <div class="content-card">
+                    <h3><span>청구·수금 월 관리 (월별 마감)</span>
+                        <div class="card-actions">
+                            <button class="btn btn-outline" style="font-size:12px; padding:5px 10px;" onclick="bpaHist('청구마감')">🕘 청구 마감 이력</button>
+                            <button class="btn btn-outline" style="font-size:12px; padding:5px 10px;" onclick="bpaHist('수금마감')">🕘 수금 마감 이력</button>
+                        </div>
+                    </h3>
+                    <div style="font-size:12px; color:#475569; line-height:1.7; margin-bottom:12px;">
+                        · 월을 마감하면 해당 월의 <strong>청구 등록·수정·삭제·엑셀 업로드</strong>, <strong>수금(수납) 등록·수정·삭제·업로드</strong>가 막힙니다. 청구와 수금은 각각 따로, 또는 <strong>한 번에</strong> 마감할 수 있습니다.<br>
+                        · 마감과 해제는 관리자만 가능하며 이력이 남습니다. 청구관리·수금관리 화면의 '이 달 마감' 버튼과 같은 상태를 사용합니다.
+                    </div>
+                    <div class="table-container"><table>
+                        <thead><tr><th class="text-center">월</th><th class="text-center">청구</th><th class="text-center">청구 마감</th><th class="text-center">수금(입금)</th><th class="text-center">수금 마감</th><th class="text-center">한 번에 처리</th></tr></thead>
+                        <tbody id="bpaBody"></tbody>
                     </table></div>
                 </div>
             </div>
@@ -2819,7 +2848,7 @@
 
                         let normalizedMonth = normalizeYM(rawMonth);
                         if (!normalizedMonth) normalizedMonth = '2026-10';
-                        if (payIsClosed(normalizedMonth)) { skipClosedB++; skipMonthsB.push(normalizedMonth); return; }   // 마감된 달 청구는 변경 불가
+                        if (payIsClosed(normalizedMonth) || billIsClosed(normalizedMonth)) { skipClosedB++; skipMonthsB.push(normalizedMonth); return; }   // 마감된 달 청구는 변경 불가
                         if (billIsPast(normalizedMonth)) {                                                              // 지난 달 청구는 관리자만 (소급 등록 이력)
                             if (!vsIsAdmin()) { skipPastB++; return; }
                             logEditRecord('PAY', memberNo, `[소급 등록] ${normalizedMonth}월 청구 ${amount.toLocaleString()}원 (엑셀 업로드, 지난 달 청구를 관리자가 등록)`);
@@ -4009,7 +4038,8 @@
         }
         /* 8·9월처럼 ERP 도입 전이라 청구 내역이 없는 달: 수납 옆 '청구없음 +'을 누르면 청구 등록창이 열립니다 */
         function payQuickBill(no, billMonth, paid) {
-            if (payClosedAlert([billMonth])) return;
+            if (payClosedAlert([billMonth]) || billClosedAlert([billMonth])) return;
+            billResetModal();
             let c = customerDataList.find(x => normalizeMemberNo(x.no) === normalizeMemberNo(no)) || {};
             try { closeModal('paymentDetailModal'); } catch (e) {}
             document.getElementById('b_no').value = no;
@@ -4029,6 +4059,114 @@
             alert(`지난 달(${list.map(m => m.replace('-', '.')).join(', ')}) 청구는 관리자만 등록·수정·삭제할 수 있습니다.\n관리자에게 요청해 주세요.`);
             return true;
         }
+        /* ---------- 청구 월 마감 (vsSettle.billClosed[연월] = {at, by}) ---------- */
+        function billIsClosed(ym) { return !!(vsSettle && vsSettle.billClosed && vsSettle.billClosed[ym]); }
+        function billClosedAlert(months) {
+            let list = Array.from(new Set(months.filter(m => billIsClosed(m)))).sort();
+            if (!list.length) return false;
+            alert(`${list.map(m => m.replace('-', '.')).join(', ')} 청구가 마감되어 등록·수정·삭제할 수 없습니다.\n관리자가 [마감 해제]를 한 뒤 수정해 주세요.`);
+            return true;
+        }
+        function billRenderLockUi() {
+            vsNormalize();
+            let sel = document.getElementById('billSelectMonth'), badge = document.getElementById('billCloseBadge');
+            if (!sel || !badge) return;
+            let ym = sel.value, admin = vsIsAdmin();
+            let isMonth = /^\d{4}-\d{2}$/.test(ym), closed = isMonth && billIsClosed(ym);
+            badge.style.display = closed ? '' : 'none';
+            if (closed) {
+                let c = vsSettle.billClosed[ym];
+                badge.innerHTML = `<span style="font-size:11px; font-weight:700; color:#047857; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:4px; padding:2px 8px;" title="${escHtml(c.at + ' · ' + c.by)}">🔒 ${ym.replace('-', '.')} 청구 마감</span>`;
+            }
+            document.getElementById('billCloseBtn').style.display = (isMonth && !closed && admin) ? '' : 'none';
+            document.getElementById('billOpenBtn').style.display = (closed && admin) ? '' : 'none';
+        }
+        function billCloseMonth() {
+            vsNormalize();
+            let ym = document.getElementById('billSelectMonth').value;
+            if (!/^\d{4}-\d{2}$/.test(ym)) { alert('마감할 청구월을 먼저 선택해 주세요.'); return; }
+            if (!vsIsAdmin()) { alert('관리자만 마감할 수 있습니다.'); return; }
+            if (billIsClosed(ym)) return;
+            let cnt = 0, sum = 0;
+            billingDataList.forEach(b => { if (normalizeYM(b.month) === ym) { cnt++; sum += b.amount || 0; } });
+            if (!confirm(`${ym.replace('-', '.')} 청구를 마감할까요?\n\n· 청구 ${cnt}건 / ${sum.toLocaleString()}원\n· 마감 후에는 이 달 청구의 등록·수정·삭제·엑셀 업로드가 막힙니다.\n(관리자가 마감 해제할 수 있습니다)`)) return;
+            let by = currentUser.name || currentUser.id;
+            vsSettle.billClosed[ym] = { at: vsNowStr(), by: by };
+            vsSettle.confirmLog.push({ ym: ym, kind: '청구마감', action: '마감', by: by, at: vsSettle.billClosed[ym].at, det: `청구 ${cnt}건 · ${sum.toLocaleString()}원` });
+            vsSave();
+            renderBillingTable();
+        }
+        function billOpenMonth() {
+            vsNormalize();
+            let ym = document.getElementById('billSelectMonth').value;
+            if (!vsIsAdmin()) { alert('관리자만 마감을 해제할 수 있습니다.'); return; }
+            if (!billIsClosed(ym)) return;
+            if (!confirm(`${ym.replace('-', '.')} 청구 마감을 해제할까요?\n해제하면 다시 등록·수정·삭제할 수 있습니다.`)) return;
+            delete vsSettle.billClosed[ym];
+            vsSettle.confirmLog.push({ ym: ym, kind: '청구마감', action: '마감 해제', by: currentUser.name || currentUser.id, at: vsNowStr() });
+            vsSave();
+            renderBillingTable();
+        }
+        function billOpenHistory() { vsNormalize(); vsHistKind = '청구마감'; vsHistYm = (document.getElementById('billSelectMonth') || {}).value || ''; openModal('vsHistoryModal'); vsRenderHistory(); }
+
+        /* ---------- 청구 등록/수정 모달 ---------- */
+        function billResetModal() {
+            document.getElementById('b_edit_idx').value = '';
+            document.getElementById('billModalTitle').innerText = '신규 청구 수동 등록';
+            document.getElementById('billSaveBtn').innerText = '청구 등록 저장';
+            ['b_no', 'b_month'].forEach(id => { let e = document.getElementById(id); e.readOnly = false; e.style.background = ''; });
+        }
+        function billOpenNew() {
+            billResetModal();
+            ['b_no', 'b_name', 'b_month', 'b_amount', 'b_pay_date', 'b_pay_method'].forEach(id => { document.getElementById(id).value = ''; });
+            document.getElementById('b_name').dataset.auto = '';
+            document.getElementById('b_name_hint').innerHTML = '';
+            openModal('billingModal');
+        }
+        function billOpenEdit(idx) {
+            let b = billingDataList.find(x => x.idx === idx);
+            if (!b) return;
+            let ym = normalizeYM(b.month);
+            if (billClosedAlert([ym]) || payClosedAlert([ym]) || billPastBlocked([ym])) return;
+            billResetModal();
+            document.getElementById('b_edit_idx').value = String(idx);
+            document.getElementById('billModalTitle').innerText = '청구 내역 수정';
+            document.getElementById('billSaveBtn').innerText = '수정 저장';
+            document.getElementById('b_no').value = b.no;
+            document.getElementById('b_name').value = b.name || '';
+            document.getElementById('b_month').value = ym;
+            document.getElementById('b_amount').value = b.amount || 0;
+            document.getElementById('b_pay_date').value = b.payDate || '';
+            document.getElementById('b_pay_method').value = b.payMethod || 'CMS';
+            document.getElementById('b_name_hint').innerHTML = '<span style="color:#94a3b8;">회원번호와 청구월은 수정할 수 없습니다. (잘못 등록했다면 삭제 후 다시 등록해 주세요)</span>';
+            ['b_no', 'b_month'].forEach(id => { let e = document.getElementById(id); e.readOnly = true; e.style.background = '#f1f5f9'; });
+            openModal('billingModal');
+        }
+        function billSaveEdit(idx) {
+            let b = billingDataList.find(x => x.idx === idx);
+            if (!b) return;
+            let ym = normalizeYM(b.month), no = normalizeMemberNo(b.no);
+            if (billClosedAlert([ym]) || payClosedAlert([ym]) || billPastBlocked([ym])) return;
+            let name = document.getElementById('b_name').value.trim();
+            let amount = parseCleanInt(document.getElementById('b_amount').value, 0);
+            let payDate = document.getElementById('b_pay_date').value.trim();
+            let payMethod = document.getElementById('b_pay_method').value.trim() || 'CMS';
+            if (!name) { alert('회원명은 필수입니다.'); return; }
+            let oldDesc = `${(b.amount || 0).toLocaleString()}원 / 결제일 ${b.payDate || '-'} / ${b.payMethod || 'CMS'}`;
+            b.name = name; b.amount = amount; b.payDate = payDate; b.payMethod = payMethod;
+            if (!paymentDataMap[no]) paymentDataMap[no] = {};
+            let ex = paymentDataMap[no][ym] || {};
+            paymentDataMap[no][ym] = { ...ex, amount: amount, billPayDate: payDate, unpaid: Math.max(0, amount - (ex.paid || 0)) };
+            logEditRecord('PAY', no, `[청구수정] ${ym}월 청구 변경: ${oldDesc} → ${amount.toLocaleString()}원 / 결제일 ${payDate || '-'} / ${payMethod}`);
+            saveLocalStorage();
+            syncToFirebase();
+            renderBillingTable();
+            renderPaymentTable();
+            renderDashboardCharts();
+            closeModal('billingModal');
+            alert('청구 내역이 수정되었습니다.');
+        }
+
         function payIsClosed(ym) { return !!(vsSettle && vsSettle.payClosed && vsSettle.payClosed[ym]); }
         function payClosedAlert(months) {
             let list = Array.from(new Set(months.filter(m => payIsClosed(m)))).sort();
@@ -4189,7 +4327,7 @@
             }
 
             let targetBill = billingDataList[bIndex];
-            if (payClosedAlert([monthKey]) || billPastBlocked([monthKey])) return;
+            if (payClosedAlert([monthKey]) || billClosedAlert([monthKey]) || billPastBlocked([monthKey])) return;
             if (!confirm(`[${monthKey}월] 청구 내역(${targetBill.amount.toLocaleString()}원)을 삭제하시겠습니까?`)) {
                 return;
             }
@@ -4319,7 +4457,7 @@
 
         function vsNormalize() {
             if (!vsSettle || typeof vsSettle !== 'object') vsSettle = {};
-            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'commManual', 'payClosed'].forEach(k => {
+            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'commManual', 'payClosed', 'billClosed'].forEach(k => {
                 if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
             });
             if (!Array.isArray(vsSettle.confirmLog)) vsSettle.confirmLog = [];
@@ -4394,6 +4532,74 @@
             for (let i = 0; i < 6; i++) { set.add(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); d.setMonth(d.getMonth() - 1, 1); }
             return Array.from(set).sort().reverse();
         }
+        /* ===== 관리자맵 > 청구·수금 월 관리 (월별 마감을 한 화면에서) ===== */
+        function bpaMonths() {
+            let set = new Set([vsTodayYm()]);
+            billingDataList.forEach(b => { let m = normalizeYM(b.month); if (/^\d{4}-\d{2}$/.test(m)) set.add(m); });
+            Object.keys((vsSettle && vsSettle.billClosed) || {}).forEach(m => set.add(m));
+            Object.keys((vsSettle && vsSettle.payClosed) || {}).forEach(m => set.add(m));
+            return Array.from(set).filter(m => m >= '2026-08').sort().reverse();
+        }
+        function bpaStat(ym) {
+            let bc = 0, bs = 0, pc = 0, ps = 0;
+            billingDataList.forEach(b => { if (normalizeYM(b.month) === ym) { bc++; bs += b.amount || 0; } });
+            customerDataList.forEach(c => { let t = payCashSum(c.no, ym); if (t > 0) { pc++; ps += t; } });
+            return { bc, bs, pc, ps };
+        }
+        function renderBillPayAdmin() {
+            vsNormalize();
+            let admin = vsIsAdmin(), now = vsTodayYm();
+            let chip = (closed, c) => closed
+                ? `<span style="font-size:11px; font-weight:700; color:#047857; background:#ecfdf5; border:1px solid #6ee7b7; border-radius:4px; padding:1px 7px;" title="${escHtml((c.at || '') + ' · ' + (c.by || ''))}">🔒 마감</span><div style="font-size:10.5px; color:#64748b; margin-top:2px;">${escHtml(c.at || '')}${c.by ? ' · ' + escHtml(c.by) : ''}</div>`
+                : '<span style="font-size:11px; color:#94a3b8;">미마감</span>';
+            let btn = (label, fn, red) => admin ? `<button class="btn ${red ? 'btn-outline' : 'btn-primary'}" style="font-size:11px; padding:3px 10px; margin-top:3px; ${red ? 'color:#dc2626; border-color:#fca5a5;' : ''}" onclick="${fn}">${label}</button>` : '';
+            let rows = bpaMonths().map(ym => {
+                let st = bpaStat(ym), bcl = billIsClosed(ym), pcl = payIsClosed(ym);
+                let both = bcl && pcl, none = !bcl && !pcl;
+                return `<tr>
+                    <td class="text-center" style="font-weight:800;">${ym.replace('-', '.')}${ym === now ? ' <span style="font-size:10px; background:#eff6ff; color:#1d4ed8; border-radius:4px; padding:0 5px;">당월</span>' : ''}</td>
+                    <td class="text-center">${vsNum(st.bc)}건<div style="font-size:11px; color:#64748b;">${vsNum(st.bs)}원</div></td>
+                    <td class="text-center">${chip(bcl, bcl ? vsSettle.billClosed[ym] : {})}<div>${bcl ? btn('해제', `bpaToggle('${ym}','bill',false)`, true) : btn('마감', `bpaToggle('${ym}','bill',true)`)}</div></td>
+                    <td class="text-center">${vsNum(st.pc)}건<div style="font-size:11px; color:#64748b;">${vsNum(st.ps)}원</div></td>
+                    <td class="text-center">${chip(pcl, pcl ? vsSettle.payClosed[ym] : {})}<div>${pcl ? btn('해제', `bpaToggle('${ym}','pay',false)`, true) : btn('마감', `bpaToggle('${ym}','pay',true)`)}</div></td>
+                    <td class="text-center">${admin ? (both ? btn('청구·수금 한 번에 해제', `bpaBoth('${ym}',false)`, true) : btn(none ? '청구·수금 한 번에 마감' : '나머지도 마감 (모두 마감)', `bpaBoth('${ym}',true)`)) : '<span style="font-size:11px; color:#94a3b8;">관리자만</span>'}${!both && !none ? '<div>' + btn('모두 해제', `bpaBoth('${ym}',false)`, true) + '</div>' : ''}</td>
+                </tr>`;
+            }).join('');
+            let body = document.getElementById('bpaBody');
+            if (body) body.innerHTML = rows || '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:24px;">월 데이터가 없습니다.</td></tr>';
+        }
+        function bpaApply(ym, kind, close) {
+            let by = currentUser.name || currentUser.id, at = vsNowStr();
+            let isBill = kind === 'bill', store = isBill ? vsSettle.billClosed : vsSettle.payClosed, label = isBill ? '청구마감' : '수금마감';
+            if (close === !!store[ym]) return false;
+            let st = bpaStat(ym);
+            if (close) {
+                store[ym] = { at: at, by: by };
+                vsSettle.confirmLog.push({ ym: ym, kind: label, action: '마감', by: by, at: at, det: isBill ? `청구 ${st.bc}건 · ${st.bs.toLocaleString()}원` : `입금 ${st.pc}건 · ${st.ps.toLocaleString()}원` });
+            } else {
+                delete store[ym];
+                vsSettle.confirmLog.push({ ym: ym, kind: label, action: '마감 해제', by: by, at: at });
+            }
+            return true;
+        }
+        function bpaToggle(ym, kind, close) {
+            vsNormalize();
+            if (!vsIsAdmin()) { alert('관리자만 처리할 수 있습니다.'); return; }
+            let name = kind === 'bill' ? '청구' : '수금';
+            if (!confirm(`${ym.replace('-', '.')} ${name}를 ${close ? '마감' : '마감 해제'}할까요?`)) return;
+            if (bpaApply(ym, kind, close)) { vsSave(); renderBillPayAdmin(); }
+        }
+        function bpaBoth(ym, close) {
+            vsNormalize();
+            if (!vsIsAdmin()) { alert('관리자만 처리할 수 있습니다.'); return; }
+            let st = bpaStat(ym);
+            if (!confirm(`${ym.replace('-', '.')} 청구와 수금을 한 번에 ${close ? '마감' : '마감 해제'}할까요?\n\n· 청구 ${vsNum(st.bc)}건 / ${vsNum(st.bs)}원\n· 수금 ${vsNum(st.pc)}건 / ${vsNum(st.ps)}원`)) return;
+            let a = bpaApply(ym, 'bill', close), b = bpaApply(ym, 'pay', close);
+            if (a || b) { vsSave(); }
+            renderBillPayAdmin();
+        }
+        function bpaHist(kind) { vsNormalize(); vsHistKind = kind; vsHistYm = ''; let c = document.getElementById('vsHistMonthOnly'); if (c) c.checked = false; openModal('vsHistoryModal'); vsRenderHistory(); }
+
         function renderSettleAdmin() {
             vsNormalize();
             let admin = vsIsAdmin(), now = vsTodayYm();
@@ -6467,6 +6673,7 @@
                 if (!vsLiveFx) vsFetchLiveFx(false);
             }
             if (category === 'settleAdmin') renderSettleAdmin();
+            if (category === 'billPayAdmin') renderBillPayAdmin();
             if (category === 'commission') renderCommissionSettle();
             if (category === 'adminMap') {
                 renderAdminUsersTable();
@@ -7914,10 +8121,14 @@
                     <td class="text-right">${amt.toLocaleString()} 원</td>
                     <td class="text-center">${b.payDate || '-'}</td>
                     <td>${b.payMethod || 'CMS'}</td>
+                    <td class="text-center">${(billIsClosed(normalizeYM(b.month)) || payIsClosed(normalizeYM(b.month)))
+                        ? `<button class="btn-action" disabled style="opacity:.4; cursor:not-allowed;" title="${normalizeYM(b.month)} 마감되어 수정할 수 없습니다">수정</button>`
+                        : `<button class="btn-action editable-only" onclick="billOpenEdit(${b.idx})">수정</button>`}</td>
                 </tr>`;
             });
 
             document.getElementById('billing-table-body').innerHTML = tbody;
+            billRenderLockUi();
             document.getElementById('billSum_count').innerText = sums.count + '건';
             document.getElementById('billSum_amount').innerText = sums.amount.toLocaleString() + ' 원';
             document.getElementById('billSum_paid').innerText = `${sums.paid.toLocaleString()} 원 (${sums.paidCount}건)`;
@@ -7946,6 +8157,8 @@
         }
 
         function saveManualBilling() {
+            let editIdx = document.getElementById('b_edit_idx').value;
+            if (editIdx) { billSaveEdit(parseInt(editIdx)); return; }
             let no = document.getElementById('b_no').value.trim();
             let name = document.getElementById('b_name').value.trim();
             let month = document.getElementById('b_month').value.trim();
@@ -7960,7 +8173,7 @@
 
             let memberNo = normalizeMemberNo(no);
             let normalizedMonth = normalizeYM(month);
-            if (payClosedAlert([normalizedMonth])) return;
+            if (payClosedAlert([normalizedMonth]) || billClosedAlert([normalizedMonth])) return;
             if (billPastBlocked([normalizedMonth])) return;
             if (billIsPast(normalizedMonth)) logEditRecord('PAY', memberNo, `[소급 등록] ${normalizedMonth}월 청구 ${amount.toLocaleString()}원 (지난 달 청구를 관리자가 등록)`);
 
@@ -8005,7 +8218,7 @@
 
             let targetItems = billingDataList.filter(b => selectedIdxs.includes(b.idx));
             let tMonths = targetItems.map(b => normalizeYM(b.month));
-            if (payClosedAlert(tMonths) || billPastBlocked(tMonths)) return;
+            if (payClosedAlert(tMonths) || billClosedAlert(tMonths) || billPastBlocked(tMonths)) return;
             if (!confirm(`선택한 ${selectedIdxs.length}건의 청구 내역을 삭제하시겠습니까?\n(수금관리에 연결된 청구/수금 데이터도 함께 정리됩니다)`)) return;
 
             targetItems.forEach(b => {
