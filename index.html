@@ -2049,7 +2049,7 @@
                         </div>
                     </h3>
                     <div style="font-size:12px; color:#475569; line-height:1.7; margin-bottom:12px;">
-                        · 월을 마감하면 해당 월의 <strong>청구 등록·수정·삭제·엑셀 업로드</strong>, <strong>수금(수납) 등록·수정·삭제·업로드</strong>가 막힙니다. 청구와 수금은 각각 따로, 또는 <strong>한 번에</strong> 마감할 수 있습니다.<br>
+                        · <strong>청구 마감</strong>은 해당 월 청구의 등록·수정·삭제·엑셀 업로드를, <strong>수금 마감</strong>은 해당 월 수납의 등록·수정·삭제·엑셀 업로드를 막습니다. 두 마감은 서로 독립적이며, 각각 따로 또는 <strong>한 번에</strong> 마감·해제할 수 있습니다.<br>
                         · 마감과 해제는 관리자만 가능하며 이력이 남습니다. 청구관리·수금관리 화면의 '이 달 마감' 버튼과 같은 상태를 사용합니다.
                     </div>
                     <div class="table-container"><table>
@@ -2848,7 +2848,7 @@
 
                         let normalizedMonth = normalizeYM(rawMonth);
                         if (!normalizedMonth) normalizedMonth = '2026-10';
-                        if (payIsClosed(normalizedMonth) || billIsClosed(normalizedMonth)) { skipClosedB++; skipMonthsB.push(normalizedMonth); return; }   // 마감된 달 청구는 변경 불가
+                        if (billIsClosed(normalizedMonth)) { skipClosedB++; skipMonthsB.push(normalizedMonth); return; }   // 마감된 달 청구는 변경 불가
                         if (billIsPast(normalizedMonth)) {                                                              // 지난 달 청구는 관리자만 (소급 등록 이력)
                             if (!vsIsAdmin()) { skipPastB++; return; }
                             logEditRecord('PAY', memberNo, `[소급 등록] ${normalizedMonth}월 청구 ${amount.toLocaleString()}원 (엑셀 업로드, 지난 달 청구를 관리자가 등록)`);
@@ -2898,7 +2898,7 @@
                     renderPaymentTable();
                     renderDashboardCharts();
 
-                    alert(`[청구 엑셀 업로드 완료]\n총 ${addCount + updateCount}건 반영 (신규: ${addCount}건 / 갱신: ${updateCount}건)` + (skipClosedB ? `\n\n※ 수금이 마감된 달(${Array.from(new Set(skipMonthsB)).sort().map(m => m.replace('-', '.')).join(', ')})의 ${skipClosedB}건은 반영하지 않았습니다.` : '') + (skipPastB ? `\n\n※ 지난 달 청구 ${skipPastB}건은 관리자만 등록할 수 있어 반영하지 않았습니다.` : ''));
+                    alert(`[청구 엑셀 업로드 완료]\n총 ${addCount + updateCount}건 반영 (신규: ${addCount}건 / 갱신: ${updateCount}건)` + (skipClosedB ? `\n\n※ 청구가 마감된 달(${Array.from(new Set(skipMonthsB)).sort().map(m => m.replace('-', '.')).join(', ')})의 ${skipClosedB}건은 반영하지 않았습니다.` : '') + (skipPastB ? `\n\n※ 지난 달 청구 ${skipPastB}건은 관리자만 등록할 수 있어 반영하지 않았습니다.` : ''));
                 } catch (err) {
                     console.error("청구 엑셀 파싱 에러:", err);
                     alert("청구 엑셀 파싱 오류: " + err.message);
@@ -4038,7 +4038,7 @@
         }
         /* 8·9월처럼 ERP 도입 전이라 청구 내역이 없는 달: 수납 옆 '청구없음 +'을 누르면 청구 등록창이 열립니다 */
         function payQuickBill(no, billMonth, paid) {
-            if (payClosedAlert([billMonth]) || billClosedAlert([billMonth])) return;
+            if (billClosedAlert([billMonth])) return;
             billResetModal();
             let c = customerDataList.find(x => normalizeMemberNo(x.no) === normalizeMemberNo(no)) || {};
             try { closeModal('paymentDetailModal'); } catch (e) {}
@@ -4127,7 +4127,7 @@
             let b = billingDataList.find(x => x.idx === idx);
             if (!b) return;
             let ym = normalizeYM(b.month);
-            if (billClosedAlert([ym]) || payClosedAlert([ym]) || billPastBlocked([ym])) return;
+            if (billClosedAlert([ym]) || billPastBlocked([ym])) return;
             billResetModal();
             document.getElementById('b_edit_idx').value = String(idx);
             document.getElementById('billModalTitle').innerText = '청구 내역 수정';
@@ -4146,7 +4146,7 @@
             let b = billingDataList.find(x => x.idx === idx);
             if (!b) return;
             let ym = normalizeYM(b.month), no = normalizeMemberNo(b.no);
-            if (billClosedAlert([ym]) || payClosedAlert([ym]) || billPastBlocked([ym])) return;
+            if (billClosedAlert([ym]) || billPastBlocked([ym])) return;
             let name = document.getElementById('b_name').value.trim();
             let amount = parseCleanInt(document.getElementById('b_amount').value, 0);
             let payDate = document.getElementById('b_pay_date').value.trim();
@@ -4192,7 +4192,7 @@
             if (payIsClosed(ym)) return;
             let cnt = 0, sum = 0;
             customerDataList.forEach(c => { let t = payCashSum(c.no, ym); if (t > 0) { cnt++; sum += t; } });
-            if (!confirm(`${ym.replace('-', '.')} 수금을 마감할까요?\n\n· 입금 ${cnt}건 / ${sum.toLocaleString()}원\n· 마감 후에는 이 달의 수납(정산일자 기준) 등록·수정·삭제·엑셀 업로드와 이 달 청구 변경이 막힙니다.\n· 문제가 생기면 관리자가 언제든 마감을 해제할 수 있습니다.`)) return;
+            if (!confirm(`${ym.replace('-', '.')} 수금을 마감할까요?\n\n· 입금 ${cnt}건 / ${sum.toLocaleString()}원\n· 마감 후에는 이 달의 수납(정산일자 기준) 등록·수정·삭제·엑셀 업로드가 막힙니다. (청구 변경은 '청구 마감'으로 따로 막습니다)\n· 문제가 생기면 관리자가 언제든 마감을 해제할 수 있습니다.`)) return;
             let by = currentUser.name || currentUser.id;
             vsSettle.payClosed[ym] = { at: vsNowStr(), by: by };
             vsSettle.confirmLog.push({ ym: ym, kind: '수금마감', action: '마감', by: by, at: vsSettle.payClosed[ym].at, det: `입금 ${cnt}건 · ${sum.toLocaleString()}원` });
@@ -4327,7 +4327,7 @@
             }
 
             let targetBill = billingDataList[bIndex];
-            if (payClosedAlert([monthKey]) || billClosedAlert([monthKey]) || billPastBlocked([monthKey])) return;
+            if (billClosedAlert([monthKey]) || billPastBlocked([monthKey])) return;
             if (!confirm(`[${monthKey}월] 청구 내역(${targetBill.amount.toLocaleString()}원)을 삭제하시겠습니까?`)) {
                 return;
             }
@@ -8121,7 +8121,7 @@
                     <td class="text-right">${amt.toLocaleString()} 원</td>
                     <td class="text-center">${b.payDate || '-'}</td>
                     <td>${b.payMethod || 'CMS'}</td>
-                    <td class="text-center">${(billIsClosed(normalizeYM(b.month)) || payIsClosed(normalizeYM(b.month)))
+                    <td class="text-center">${billIsClosed(normalizeYM(b.month))
                         ? `<button class="btn-action" disabled style="opacity:.4; cursor:not-allowed;" title="${normalizeYM(b.month)} 마감되어 수정할 수 없습니다">수정</button>`
                         : `<button class="btn-action editable-only" onclick="billOpenEdit(${b.idx})">수정</button>`}</td>
                 </tr>`;
@@ -8173,7 +8173,7 @@
 
             let memberNo = normalizeMemberNo(no);
             let normalizedMonth = normalizeYM(month);
-            if (payClosedAlert([normalizedMonth]) || billClosedAlert([normalizedMonth])) return;
+            if (billClosedAlert([normalizedMonth])) return;
             if (billPastBlocked([normalizedMonth])) return;
             if (billIsPast(normalizedMonth)) logEditRecord('PAY', memberNo, `[소급 등록] ${normalizedMonth}월 청구 ${amount.toLocaleString()}원 (지난 달 청구를 관리자가 등록)`);
 
@@ -8218,7 +8218,7 @@
 
             let targetItems = billingDataList.filter(b => selectedIdxs.includes(b.idx));
             let tMonths = targetItems.map(b => normalizeYM(b.month));
-            if (payClosedAlert(tMonths) || billClosedAlert(tMonths) || billPastBlocked(tMonths)) return;
+            if (billClosedAlert(tMonths) || billPastBlocked(tMonths)) return;
             if (!confirm(`선택한 ${selectedIdxs.length}건의 청구 내역을 삭제하시겠습니까?\n(수금관리에 연결된 청구/수금 데이터도 함께 정리됩니다)`)) return;
 
             targetItems.forEach(b => {
