@@ -9151,7 +9151,16 @@
             }
             alert('처리 결과 (임시 비밀번호는 지금만 확인 가능합니다. 각자에게 전달하세요):\n\n' + lines.join('\n'));
         }
-    </script>
+    
+    // 날짜 입력: 연도 4자리 입력 시 월로 자동 이동 (max 지정으로 연도 4자리 제한)
+    (function(){
+        function fix(el){ try{ if(el && el.type==='date' && !el.max) el.max='9999-12-31'; }catch(e){} }
+        function all(){ document.querySelectorAll('input[type="date"]').forEach(fix); }
+        document.addEventListener('focusin', function(e){ fix(e.target); }, true);
+        if(document.readyState!=='loading') all(); else document.addEventListener('DOMContentLoaded', all);
+        try{ new MutationObserver(all).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+    })();
+</script>
 </div>
 </body>
 </html>
