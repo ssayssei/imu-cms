@@ -2764,6 +2764,23 @@
                         return;
                     }
 
+                    {   // 업로드 전 확인: 건수 / 총 수납금액 / 월별
+                        let pvCnt = 0, pvSum = 0, pvNoDate = 0, pvMonths = {};
+                        json.forEach(r => {
+                            let mn = normalizeMemberNo(r['회원번호'] || r['회원 번호'] || '');
+                            if (!mn) return;
+                            let ym = normalizeYM(String(r['청구월'] || r['청구 연월'] || '').trim()) || '2026-10';
+                            let amt = parseCleanInt(r['수납금액'] || r['금액'], 0);
+                            let sd = (xlSerialToYMD(r['정산일'] || r['정산일자']) || String(r['정산일'] || r['정산일자'] || '').trim());
+                            pvCnt++; pvSum += amt; if (!sd) pvNoDate++;
+                            if (!pvMonths[ym]) pvMonths[ym] = { c: 0, s: 0 };
+                            pvMonths[ym].c++; pvMonths[ym].s += amt;
+                        });
+                        if (!pvCnt) { alert('업로드할 수 있는 행이 없습니다. (회원번호 열을 확인해 주세요)'); return; }
+                        let ml = Object.keys(pvMonths).sort().map(k => `  · ${k}: ${pvMonths[k].c}건 / ${pvMonths[k].s.toLocaleString()}원`).join('\n');
+                        let msg = `[수금 엑셀 업로드 확인]\n파일: ${file.name}\n\n총 ${pvCnt.toLocaleString()}건\n총 수납금액 ${pvSum.toLocaleString()}원\n\n월별 내역\n${ml}` + (pvNoDate ? `\n\n※ 정산일이 비어 있는 행: ${pvNoDate}건` : '') + `\n\n이대로 업로드할까요?`;
+                        if (!confirm(msg)) return;
+                    }
                     let addCount = 0, skipClosed = 0, skipMonths = [];
                     let batchRecords = [];
                     let uploadTimeStr = new Date().toLocaleString('ko-KR');
