@@ -507,7 +507,7 @@
 <div class="mf-grid">
 <div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>회원번호</label><input type="text" id="m_no" placeholder="예: 00000535"></div></div>
 <div class="mf-cell" style="grid-column: span 4;"><div class="form-group"><label>회원명 (가맹점명)</label><input type="text" id="m_name" placeholder="예: 무고레에프앤비"></div></div>
-<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>납부자 휴대전화</label><input type="text" id="m_phone" placeholder="010-0000-0000"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>납부자 휴대전화</label><input type="text" id="m_phone" placeholder="000-0000-0000"></div></div>
 <div class="mf-cell" style="grid-column: span 2;"><div class="form-group">
                     <label>계약상태</label>
                     <select id="m_status"><option value="사용">사용</option><option value="중지">중지</option></select>
@@ -570,7 +570,7 @@
                 <div style="font-size:12px; font-weight:700; color:#2563eb; margin-bottom:8px;">🧾 대리점 세금계산서 담당자 연락처 (동일 사업자번호 전체 자동 동기화)</div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1.5fr; gap:8px;">
                     <div class="form-group" style="margin-bottom:0;"><label>담당자명</label><input type="text" id="m_tax_name" placeholder="예: 홍길동 과장"></div>
-                    <div class="form-group" style="margin-bottom:0;"><label>전화번호</label><input type="text" id="m_tax_phone" placeholder="예: 010-1234-5678"></div>
+                    <div class="form-group" style="margin-bottom:0;"><label>전화번호</label><input type="text" id="m_tax_phone" placeholder="000-0000-0000"></div>
                     <div class="form-group" style="margin-bottom:0;"><label>계산서 이메일</label><input type="text" id="m_tax_email" placeholder="예: tax@agency.com"></div>
                 </div>
             </div>
@@ -594,7 +594,7 @@
 <div class="mf-grid">
 <div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>회원번호</label><input type="text" id="edit_no" readonly style="background:#f1f5f9; font-weight:bold;"></div></div>
 <div class="mf-cell" style="grid-column: span 4;"><div class="form-group"><label>회원명 (가맹점명)</label><input type="text" id="edit_name"></div></div>
-<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>납부자 휴대전화</label><input type="text" id="edit_phone"></div></div>
+<div class="mf-cell" style="grid-column: span 2;"><div class="form-group"><label>납부자 휴대전화</label><input type="text" id="edit_phone" placeholder="000-0000-0000"></div></div>
 <div class="mf-cell" style="grid-column: span 2;"><div class="form-group">
                     <label>계약상태</label>
                     <select id="edit_status"><option value="사용">사용</option><option value="중지">중지</option></select>
@@ -666,7 +666,7 @@
                 <div style="font-size:12px; font-weight:700; color:#2563eb; margin-bottom:8px;">🧾 대리점 세금계산서 담당자 연락처 (수정 시 같은 사업자번호의 모든 가맹점 자동 동기화)</div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1.5fr; gap:8px;">
                     <div class="form-group" style="margin-bottom:0;"><label>담당자명</label><input type="text" id="edit_tax_name" placeholder="예: 홍길동 과장"></div>
-                    <div class="form-group" style="margin-bottom:0;"><label>전화번호</label><input type="text" id="edit_tax_phone" placeholder="예: 010-1234-5678"></div>
+                    <div class="form-group" style="margin-bottom:0;"><label>전화번호</label><input type="text" id="edit_tax_phone" placeholder="000-0000-0000"></div>
                     <div class="form-group" style="margin-bottom:0;"><label>계산서 이메일</label><input type="text" id="edit_tax_email" placeholder="예: tax@agency.com"></div>
                 </div>
             </div>
@@ -770,7 +770,7 @@
                 </div>
                 <div class="form-group">
                     <label>담당자 전화번호</label>
-                    <input type="text" id="ac_tax_phone" placeholder="예: 010-1234-5678">
+                    <input type="text" id="ac_tax_phone" placeholder="000-0000-0000">
                 </div>
             </div>
             <div class="form-group">
@@ -2633,7 +2633,7 @@
                 let agencyName = String(row['대리점/가맹점명'] || row['대리점명'] || row['가맹점명'] || row['업체명'] || '').trim();
                 let address = String(row['주소지'] || row['주소'] || row['소재지'] || '').trim();
                 let taxName = String(row['세금계산서담당자'] || row['담당자명'] || row['세금계산서 담당자명'] || '').trim();
-                let taxPhone = String(row['담당자전화번호'] || row['전화번호'] || row['연락처'] || '').trim();
+                let taxPhone = fmtPhone(String(row['담당자전화번호'] || row['전화번호'] || row['연락처'] || '').trim());
                 let taxEmail = String(row['계산서이메일'] || row['이메일'] || row['세금계산서 수신 이메일'] || '').trim();
                 let memo = String(row['비고'] || row['메모'] || '').trim();
                 if (!bizNo && !agencyName && !address) return;                         // 완전히 빈 행
@@ -2742,7 +2742,7 @@
             if (key && taxContactMap[key]) {
                 let info = taxContactMap[key];
                 if (info.taxName && !document.getElementById(nameInputId).value) document.getElementById(nameInputId).value = info.taxName;
-                if (info.taxPhone && !document.getElementById(phoneInputId).value) document.getElementById(phoneInputId).value = info.taxPhone;
+                if (info.taxPhone && !document.getElementById(phoneInputId).value) document.getElementById(phoneInputId).value = fmtPhone(info.taxPhone);
                 if (info.taxEmail && !document.getElementById(emailInputId).value) document.getElementById(emailInputId).value = info.taxEmail;
             }
         }
@@ -2995,7 +2995,7 @@
                                 idx: customerDataList.length > 0 ? Math.max(...customerDataList.map(c => c.idx || 0)) + 1 : (rIdx + 1),
                                 no: memberNo,
                                 name: String(row['회원명'] || excelName || memberNo).trim(),
-                                phone: String(row['납부자 휴대전화'] || row['휴대전화'] || '-').trim(),
+                                phone: fmtPhone(String(row['납부자 휴대전화'] || row['휴대전화'] || '-').trim()),
                                 status: '사용',
                                 amount: 0,
                                 contractDay: '05',
@@ -3061,7 +3061,7 @@
                     json.forEach((row, rIdx) => {
                         let memberNo = normalizeMemberNo(row['회원번호'] || row['회원 번호'] || '');
                         let memberName = String(row['회원명'] || row['가맹점명'] || row['고객명'] || '').trim();
-                        let phone = String(row['납부자 휴대전화'] || row['휴대전화'] || row['전화번호'] || '').trim();
+                        let phone = fmtPhone(String(row['납부자 휴대전화'] || row['휴대전화'] || row['전화번호'] || '').trim());
                         let status = String(row['계약상태'] || '사용').trim() || '사용';
                         let amount = parseCleanInt(row['상품금액'] || row['금액'], 0);
                         let contractDay = String(row['약정일'] || row['약정 일자'] || '').trim();
@@ -3080,7 +3080,7 @@
                         let addressIn = String(row['주소'] || row['주소지'] || row['소재지'] || '').trim();
 
                         let taxName = String(row['세금계산서담당자'] || row['계산서담당자'] || '').trim();
-                        let taxPhone = String(row['계산서전화번호'] || row['담당자전화번호'] || '').trim();
+                        let taxPhone = fmtPhone(String(row['계산서전화번호'] || row['담당자전화번호'] || '').trim());
                         let taxEmail = String(row['계산서이메일'] || row['담당자이메일'] || '').trim();
 
                         if (!memberNo && !memberName) return;
@@ -3800,7 +3800,9 @@
 
         /* 전화번호 자동 하이픈: 000-0000-0000 (02 지역번호는 02-0000-0000) */
         function fmtPhone(v) {
-            let d = String(v || '').replace(/\D/g, '').slice(0, 11);
+            let raw = String(v || ''), d0 = raw.replace(/\D/g, '');
+            if (!d0 || d0.length > 11 || /[+]/.test(raw)) return raw;   // 숫자 없음/국제번호는 그대로
+            let d = d0.slice(0, 11);
             if (d.startsWith('02')) {
                 d = d.slice(0, 10);
                 if (d.length <= 2) return d;
@@ -3812,6 +3814,16 @@
             if (d.length <= 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
             return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
         }
+
+        document.addEventListener('input', function(e) {
+            let t = e.target;
+            if (t && ['m_phone', 'edit_phone', 'm_tax_phone', 'edit_tax_phone', 'ac_tax_phone'].indexOf(t.id) >= 0) {
+                let v = t.value;
+                if (/[^0-9\-\s]/.test(v)) return;                         // 숫자 외 문자가 섞이면 건드리지 않음
+                let f = fmtPhone(v);
+                if (f !== v) t.value = f;
+            }
+        });
 
         function resetMonthPayment() {
             if (!currentUser || currentUser.role === '보기전용') { alert('보기전용 계정은 수금 데이터를 초기화할 수 없습니다.'); return; }
@@ -6243,7 +6255,7 @@
             document.getElementById('csInvBody').innerHTML = csInvRows.length ? csInvRows.map((r, i) => `<tr>
                 <td style="font-weight:700;">${escHtml(r.agency)}</td>
                 <td style="font-size:12px;">${escHtml(r.stores)}</td>
-                <td>${r.phone ? escHtml(r.phone) : '<span style="color:#e11d48;">번호없음</span>'}</td>
+                <td>${r.phone ? escHtml(fmtPhone(r.phone)) : '<span style="color:#e11d48;">번호없음</span>'}</td>
                 <td style="font-size:12px;">${r.email ? escHtml(r.email) : '-'}</td>
                 <td class="text-right" style="font-weight:700;">${vsNum(r.amt)}</td>
                 <td><pre style="white-space:pre-wrap; margin:0; font:inherit; font-size:11px; max-height:64px; overflow:auto; color:#334155;">${escHtml(r.msg)}</pre></td>
@@ -6253,7 +6265,7 @@
         function csInvDownload() {
             if (!csInvRows.length) { alert('다운로드할 대상이 없습니다.'); return; }
             let rows = csInvRows.map(r => ({
-                '대리점명': r.agency, '가맹점명': r.stores, '휴대폰번호': r.phone || '번호없음', '이메일': r.email || '',
+                '대리점명': r.agency, '가맹점명': r.stores, '휴대폰번호': fmtPhone(r.phone) || '번호없음', '이메일': r.email || '',
                 '정산금액(VAT포함)': r.amt, '공급가액': Math.round(r.amt / 1.1), '세액': r.amt - Math.round(r.amt / 1.1),
                 '요청 안내문자 (복사용)': r.msg
             }));
@@ -6557,7 +6569,7 @@
                     <td style="font-weight:600; color:#0f172a;">${escHtml(r.agencyName)}</td>
                     <td class="clickable-cell" onclick="openDetailModal(${c.idx})" title="고객 세부내역 창 열기" style="color:#2563eb; text-decoration:underline;">${escHtml(c.no)}</td>
                     <td><div>${escHtml(r.name)}</div></td>
-                    <td>${escHtml(r.phone)}</td>
+                    <td>${escHtml(fmtPhone(r.phone))}</td>
                     <td>${badge}<div class="sub-text">(${escHtml(c.startDate || '-')})</div></td>
                     <td class="text-right" style="font-weight:700;">${won(r.amount)}</td>
                     <td class="text-right">${pbCell}</td>
@@ -6584,7 +6596,7 @@
             let sel = Array.from(document.querySelectorAll('#pbCustBody .pb-check:checked')).map(c => normalizeMemberNo(c.value));
             let rows = pbCustRows(); if (sel.length) rows = rows.filter(r => sel.includes(normalizeMemberNo(r.c.no)));
             if (!rows.length) { alert('다운로드할 페이백 매장이 없습니다.'); return; }
-            let data = rows.map(r => ({ 'NO.': r.c.idx, '대리점명': r.agencyName, '회원번호': r.c.no, '회원명': r.name, '납부자 휴대전화': r.phone, '계약상태': r.status, '청구시작일': r.c.startDate || '', '상품금액': r.amount, '페이백금액': r.pbAmount, '약정일': r.contractDay, '회원구분': r.type, '납품처명': r.supplier, '사업자번호': r.bizNo, '지역': r.region, '영업대표': r.manager }));
+            let data = rows.map(r => ({ 'NO.': r.c.idx, '대리점명': r.agencyName, '회원번호': r.c.no, '회원명': r.name, '납부자 휴대전화': fmtPhone(r.phone), '계약상태': r.status, '청구시작일': r.c.startDate || '', '상품금액': r.amount, '페이백금액': r.pbAmount, '약정일': r.contractDay, '회원구분': r.type, '납품처명': r.supplier, '사업자번호': r.bizNo, '지역': r.region, '영업대표': r.manager }));
             let ws = XLSX.utils.json_to_sheet(data), wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, '페이백 고객관리');
             XLSX.writeFile(wb, '페이백_고객관리.xlsx');
@@ -6821,14 +6833,14 @@
             let agKey = cleanBizNo(agBiz);
             let agLink = (agKey && taxContactMap[agKey]) ? ` <a href="#" onclick="drawerOpen('agency:${agKey}'); return false;" style="font-size:11px; color:#2563eb;">대리점 보기 ›</a>` : '';
             let sec = [];
-            sec.push(`<div class="dr-sec"><h4>계약 정보</h4>${drGrid([['청구시작일', c.startDate], ['상품금액', c.amount > 0 ? c.amount.toLocaleString() + ' 원' : '-'], ['약정일', c.contractDay], ['납부자 휴대전화', c.phone], ['지역', custRegion(c)], ['영업대표', c.manager], ['주소', c.address]])}</div>`);
+            sec.push(`<div class="dr-sec"><h4>계약 정보</h4>${drGrid([['청구시작일', c.startDate], ['상품금액', c.amount > 0 ? c.amount.toLocaleString() + ' 원' : '-'], ['약정일', c.contractDay], ['납부자 휴대전화', fmtPhone(c.phone)], ['지역', custRegion(c)], ['영업대표', c.manager], ['주소', c.address]])}</div>`);
             sec.push(`<div class="dr-sec"><h4>대리점</h4>${drGrid([['대리점명', (agName || '-') + agLink, true], ['대리점 사업자번호', agBiz], ['납품처명', c.supplier], ['사업자번호', c.bizNo || c.store]])}</div>`);
             if (c.type === 'AI스캐너' || c.viscoveryName || c.excelName) {
                 let unit = (viscoveryRateConfig && viscoveryRateConfig.defaultUnitPrice) ? viscoveryRateConfig.defaultUnitPrice : 45;
                 let qty = c.qty !== undefined && c.qty !== null ? c.qty : 1;
                 sec.push(`<div class="dr-sec"><h4>AI스캐너</h4>${drGrid([['엑셀명', c.excelName], ['Viscovery명', c.viscoveryName], ['수량', qty + ' 대'], ['Viscovery 수수료', 'USD ' + (c.viscoveryFee > 0 ? c.viscoveryFee : qty * unit)], ['영업수수료', c.commission > 0 ? c.commission.toLocaleString() + ' 원' : '-']])}</div>`);
             }
-            sec.push(`<div class="dr-sec"><h4>세금계산서 담당</h4>${drGrid([['담당자', tInfo.taxName], ['전화번호', tInfo.taxPhone], ['이메일', tInfo.taxEmail]])}</div>`);
+            sec.push(`<div class="dr-sec"><h4>세금계산서 담당</h4>${drGrid([['담당자', tInfo.taxName], ['전화번호', fmtPhone(tInfo.taxPhone)], ['이메일', tInfo.taxEmail]])}</div>`);
             let pm = paymentDataMap[no] || {};
             let months = Object.keys(pm).filter(m => /^\d{4}-\d{2}$/.test(m)).sort().reverse().slice(0, 6);
             sec.push(`<div class="dr-sec"><h4>최근 수금 현황</h4>${months.length ? `<table style="width:100%;"><thead><tr><th>월</th><th class="text-right">청구</th><th class="text-right">입금</th></tr></thead><tbody>${months.map(m => `<tr><td>${m}</td><td class="text-right">${(pm[m].amount || 0).toLocaleString()}</td><td class="text-right" style="color:${payUnpaidFor(no, m, pm[m].amount || 0) === 0 ? '#059669' : '#dc2626'};">${payCashSum(no, m).toLocaleString()}</td></tr>`).join('')}</tbody></table>` : '<div style="font-size:12px; color:#94a3b8;">수금 내역이 없습니다.</div>'}</div>`);
@@ -6844,7 +6856,7 @@
             document.getElementById('drawerTitle').innerHTML = `${escHtml(a.agencyName || '(이름 없음)')}`;
             document.getElementById('drawerSub').innerText = `${a.bizNo} · ${extractRegionFromAddress(a.address)} · 연결 매장 ${st.length}곳`;
             let sec = [];
-            sec.push(`<div class="dr-sec"><h4>대리점 정보</h4>${drGrid([['주소지', a.address], ['세금계산서 담당자', a.taxName], ['담당자 전화번호', a.taxPhone], ['수신 이메일', a.taxEmail], ['비고', a.memo]])}</div>`);
+            sec.push(`<div class="dr-sec"><h4>대리점 정보</h4>${drGrid([['주소지', a.address], ['세금계산서 담당자', a.taxName], ['담당자 전화번호', fmtPhone(a.taxPhone)], ['수신 이메일', a.taxEmail], ['비고', a.memo]])}</div>`);
             sec.push(`<div class="dr-sec"><h4>연결 매장 (${st.length}곳)</h4>${st.length ? st.map(s => `<div class="dr-store"><div><strong>${escHtml(s.name || '-')}</strong> <span style="color:#94a3b8; font-size:11px;">${escHtml(s.no)}${s.status === '사용' ? '' : ' · ' + escHtml(s.status || '')}</span></div><button class="btn-action editable-only" style="color:#dc2626;" onclick="drawerUnlink('${escHtml(s.no)}', '${k}')">연결 해제</button></div>`).join('') : '<div style="font-size:12px; color:#94a3b8;">연결된 매장이 없습니다.</div>'}</div>`);
             sec.push(`<div class="dr-sec editable-only" style="display:block;"><h4>매장 추가 연결</h4><input type="text" id="drLinkSearch" placeholder="회원명 또는 회원번호로 검색" oninput="drawerLinkSearch('${k}')" style="width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px;"><div id="drLinkResults" style="margin-top:6px;"></div></div>`);
             sec.push(`<div class="dr-actions"><button class="btn btn-primary editable-only" style="font-size:12px; padding:6px 12px;" onclick="openEditAgencyContactModal('${k}')">대리점 정보 수정</button><button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="openAgencyStoresModal('${k}')">연결 매장 관리 창</button></div>`);
@@ -7385,7 +7397,7 @@
                 let key = cleanBizNo(item.bizNo);
                 let tInfo = (key && taxContactMap[key]) ? taxContactMap[key] : { taxName: item.taxName, taxPhone: item.taxPhone, taxEmail: item.taxEmail };
                 if (tInfo.taxEmail || tInfo.taxPhone || tInfo.taxName) {
-                    taxSummary = `<span style="font-size:11px; color:#2563eb; font-weight:600;">${tInfo.taxName || '담당'}</span><div style="font-size:10px; color:#64748b;">${tInfo.taxEmail || tInfo.taxPhone}</div>`;
+                    taxSummary = `<span style="font-size:11px; color:#2563eb; font-weight:600;">${tInfo.taxName || '담당'}</span><div style="font-size:10px; color:#64748b;">${tInfo.taxEmail || fmtPhone(tInfo.taxPhone)}</div>`;
                 }
 
                 tbody += `<tr data-drawer="cust:${item.idx}" title="클릭하면 오른쪽에 상세 정보가 열립니다" style="cursor:pointer;">
@@ -7395,7 +7407,7 @@
                     <td>${getAgencyBizNoDisplay(item)}</td>
                     <td class="clickable-cell" onclick="openDetailModal(${item.idx})" title="고객 세부내역 창 열기" style="color:#2563eb; text-decoration:underline;">${item.no}</td>
                     <td><div>${item.name}</div></td>
-                    <td>${item.phone}</td>
+                    <td>${fmtPhone(item.phone)}</td>
                     <td>
                         ${statusBadge}
                         <div class="sub-text">(${item.startDate || '-'})</div>
@@ -7468,7 +7480,7 @@
                     <td style="font-weight:600; color:#0f172a;">${item.viscoveryName || '-'}</td>
                     <td class="clickable-cell" onclick="openDetailModal(${item.idx})" title="고객 세부내역 창 열기" style="color:#2563eb; text-decoration:underline;">${item.no}</td>
                     <td><div>${item.name}</div></td>
-                    <td>${item.phone}</td>
+                    <td>${fmtPhone(item.phone)}</td>
                     <td>
                         ${statusBadge}
                         <div class="sub-text">(${item.startDate || '-'})</div>
@@ -7483,7 +7495,7 @@
                     <td>${item.bizNo || '-'}</td>
                     <td>${custRegion(item)}</td>
                     <td>${item.manager || '-'}</td>
-                    <td>${(() => { let t = custAgencyTax(item); return (t.name || t.phone || t.email) ? `<div style="font-weight:600;">${escHtml(t.name || '-')}</div><div class="sub-text">${t.phone ? `<span style="color:#2563eb; cursor:copy; border-bottom:1px dotted #2563eb;" title="클릭하면 번호가 복사됩니다 (위사 문자발송에 붙여넣기)" onclick="event.stopPropagation(); copyText('${escHtml(t.phone)}', '연락처')">${escHtml(t.phone)}</span> <a href="sms:${escHtml(String(t.phone).replace(/[^0-9+]/g, ''))}" title="문자 보내기 (휴대폰/Phone Link 연결 시)" onclick="event.stopPropagation()" style="text-decoration:none;">💬</a>` : '-'}</div>${t.email ? `<div class="sub-text"><a href="mailto:${escHtml(t.email)}" title="클릭하면 메일 작성 창이 열립니다" onclick="event.stopPropagation()" style="color:#2563eb; text-decoration:none;">${escHtml(t.email)}</a></div>` : ''}` : '-'; })()}</td>
+                    <td>${(() => { let t = custAgencyTax(item); return (t.name || t.phone || t.email) ? `<div style="font-weight:600;">${escHtml(t.name || '-')}</div><div class="sub-text">${t.phone ? `<span style="color:#2563eb; cursor:copy; border-bottom:1px dotted #2563eb;" title="클릭하면 번호가 복사됩니다 (위사 문자발송에 붙여넣기)" onclick="event.stopPropagation(); copyText('${escHtml(t.phone)}', '연락처')">${escHtml(fmtPhone(t.phone))}</span> <a href="sms:${escHtml(String(t.phone).replace(/[^0-9+]/g, ''))}" title="문자 보내기 (휴대폰/Phone Link 연결 시)" onclick="event.stopPropagation()" style="text-decoration:none;">💬</a>` : '-'}</div>${t.email ? `<div class="sub-text"><a href="mailto:${escHtml(t.email)}" title="클릭하면 메일 작성 창이 열립니다" onclick="event.stopPropagation()" style="color:#2563eb; text-decoration:none;">${escHtml(t.email)}</a></div>` : ''}` : '-'; })()}</td>
                     <td class="text-center"><button class="btn-action" onclick="openCounselModal('${item.no}')">상담내역</button></td>
                 </tr>`;
             });
@@ -7657,7 +7669,7 @@
                             <button class="btn-action" style="color:#475569;" onclick="openAgencyStoresModal('${k}')" title="매장 수동 추가 / 개별 연결 해제">관리</button>
                         </td>
                         <td><strong>${item.taxName || '-'}</strong></td>
-                        <td>${item.taxPhone || '-'}</td>
+                        <td>${item.taxPhone ? fmtPhone(item.taxPhone) : '-'}</td>
                         <td style="color:#2563eb;">${item.taxEmail || '-'}</td>
                         <td style="color:#64748b; font-size:11px;">${item.memo || '-'}</td>
                         <td class="text-center">
@@ -7821,7 +7833,7 @@
             document.getElementById('ac_agency_name').value = item.agencyName || '';
             document.getElementById('ac_address').value = item.address || '';
             document.getElementById('ac_tax_name').value = item.taxName || '';
-            document.getElementById('ac_tax_phone').value = item.taxPhone || '';
+            document.getElementById('ac_tax_phone').value = fmtPhone(item.taxPhone || '');
             document.getElementById('ac_tax_email').value = item.taxEmail || '';
             document.getElementById('ac_memo').value = item.memo || '';
             openModal('agencyContactModal');
@@ -7832,7 +7844,7 @@
             let agencyName = document.getElementById('ac_agency_name').value.trim();
             let address = document.getElementById('ac_address').value.trim();
             let taxName = document.getElementById('ac_tax_name').value.trim();
-            let taxPhone = document.getElementById('ac_tax_phone').value.trim();
+            let taxPhone = fmtPhone(document.getElementById('ac_tax_phone').value.trim());
             let taxEmail = document.getElementById('ac_tax_email').value.trim();
             let memo = document.getElementById('ac_memo').value.trim();
 
@@ -7865,7 +7877,7 @@
                     '주소지': item.address || '-',
                     '연결 매장수': linkedStores.length,
                     '세금계산서 담당자명': item.taxName || '-',
-                    '전화번호': item.taxPhone || '-',
+                    '전화번호': fmtPhone(item.taxPhone) || '-',
                     '세금계산서 이메일': item.taxEmail || '-',
                     '비고': item.memo || '-'
                 };
@@ -7909,7 +7921,7 @@
                         <td class="text-center">${idx + 1}</td>
                         <td style="font-weight:700; color:#2563eb;">${s.no}</td>
                         <td style="font-weight:600;">${s.name}</td>
-                        <td>${s.phone || '-'}</td>
+                        <td>${s.phone ? fmtPhone(s.phone) : '-'}</td>
                         <td class="text-center">${statusBadge}</td>
                         <td>${s.bizNo || '-'}</td>
                         <td class="text-center">
@@ -8039,7 +8051,7 @@
             g(0).value = ag.agencyName || '';
             if (g(5)) g(5).value = ag.bizNo || '';
             if (ag.taxName && g(2)) g(2).value = ag.taxName;
-            if (ag.taxPhone && g(3)) g(3).value = ag.taxPhone;
+            if (ag.taxPhone && g(3)) g(3).value = fmtPhone(ag.taxPhone);
             if (ag.taxEmail && g(4)) g(4).value = ag.taxEmail;
             agencySuggestHide(pre);
         }
@@ -8056,7 +8068,7 @@
                 document.getElementById(bizNoInputId).value = ag.bizNo;
             }
             if (ag.taxName) document.getElementById(taxNameId).value = ag.taxName;
-            if (ag.taxPhone) document.getElementById(taxPhoneId).value = ag.taxPhone;
+            if (ag.taxPhone) document.getElementById(taxPhoneId).value = fmtPhone(ag.taxPhone);
             if (ag.taxEmail) document.getElementById(taxEmailId).value = ag.taxEmail;
         }
 
@@ -8098,7 +8110,7 @@
             document.getElementById('edit_idx').value = item.idx;
             document.getElementById('edit_no').value = item.no;
             document.getElementById('edit_name').value = item.name || '';
-            document.getElementById('edit_phone').value = item.phone || '';
+            document.getElementById('edit_phone').value = fmtPhone(item.phone || '');
             document.getElementById('edit_status').value = item.status || '사용';
             document.getElementById('edit_start').value = item.startDate || '';
             document.getElementById('edit_amount').value = item.amount || '';
@@ -8125,7 +8137,7 @@
             let k = cleanBizNo(item.bizNo);
             let tInfo = (k && taxContactMap[k]) ? taxContactMap[k] : { taxName: item.taxName, taxPhone: item.taxPhone, taxEmail: item.taxEmail };
             document.getElementById('edit_tax_name').value = tInfo.taxName || '';
-            document.getElementById('edit_tax_phone').value = tInfo.taxPhone || '';
+            document.getElementById('edit_tax_phone').value = fmtPhone(tInfo.taxPhone || '');
             document.getElementById('edit_tax_email').value = tInfo.taxEmail || '';
 
             renderCustEditLog(normalizeMemberNo(item.no));
@@ -8667,7 +8679,7 @@
             let newAmt = parseCleanInt(document.getElementById('edit_amount').value, 0);
 
             item.name = document.getElementById('edit_name').value.trim();
-            item.phone = document.getElementById('edit_phone').value.trim();
+            item.phone = fmtPhone(document.getElementById('edit_phone').value.trim());
             item.status = document.getElementById('edit_status').value;
             item.startDate = document.getElementById('edit_start').value.trim();
             item.amount = newAmt;
@@ -8697,7 +8709,7 @@
             item.region = document.getElementById('edit_region').value;
 
             let taxName = document.getElementById('edit_tax_name').value.trim();
-            let taxPhone = document.getElementById('edit_tax_phone').value.trim();
+            let taxPhone = fmtPhone(document.getElementById('edit_tax_phone').value.trim());
             let taxEmail = document.getElementById('edit_tax_email').value.trim();
 
             item.taxName = taxName;
@@ -8901,7 +8913,7 @@
                     'Viscovery명': item.viscoveryName || '-',
                     '회원번호': item.no,
                     '회원명': item.name,
-                    '납부자 휴대전화': item.phone,
+                    '납부자 휴대전화': fmtPhone(item.phone),
                     '계약상태': item.status,
                     '청구시작일': item.startDate,
                     '상품금액': item.amount || '-',
@@ -8916,7 +8928,7 @@
                     '주소': item.address || '-',
                     '영업대표': item.manager || '-',
                     '대리점 세금계산서 담당자': custAgencyTax(item).name || '-',
-                    '대리점 세금계산서 담당자 연락처': custAgencyTax(item).phone || '-'
+                    '대리점 세금계산서 담당자 연락처': fmtPhone(custAgencyTax(item).phone) || '-'
                 }));
                 var ws = XLSX.utils.json_to_sheet(excelRows);
                 var wb = XLSX.utils.book_new();
@@ -8942,7 +8954,7 @@
                         '대리점 사업자번호': getAgencyBizNoDisplay(item),
                         '회원번호': item.no,
                         '회원명': item.name,
-                        '납부자 휴대전화': item.phone,
+                        '납부자 휴대전화': fmtPhone(item.phone),
                         '계약상태': item.status,
                         '청구시작일': item.startDate,
                         '상품금액': item.amount || '-',
@@ -8954,7 +8966,7 @@
                         '주소': item.address || '-',
                         '영업대표': item.manager || '-',
                         '세금계산서담당자': tInfo.taxName || '-',
-                        '계산서전화번호': tInfo.taxPhone || '-',
+                        '계산서전화번호': fmtPhone(tInfo.taxPhone) || '-',
                         '계산서이메일': tInfo.taxEmail || '-'
                     };
                 });
@@ -9021,7 +9033,7 @@
 
             let bizNo = document.getElementById('m_biz_no').value.trim() || '-';
             let taxName = document.getElementById('m_tax_name').value.trim();
-            let taxPhone = document.getElementById('m_tax_phone').value.trim();
+            let taxPhone = fmtPhone(document.getElementById('m_tax_phone').value.trim());
             let taxEmail = document.getElementById('m_tax_email').value.trim();
             let agencyName = document.getElementById('m_agency_name').value.trim() || '';
 
@@ -9033,7 +9045,7 @@
                 idx: custNextIdx(),
                 no: cleanNo,
                 name: name,
-                phone: document.getElementById('m_phone').value.trim(),
+                phone: fmtPhone(document.getElementById('m_phone').value.trim()),
                 status: statusVal,
                 startDate: startD,
                 amount: parseCleanInt(document.getElementById('m_amount').value, 0),
