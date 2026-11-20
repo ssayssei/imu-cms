@@ -2237,7 +2237,7 @@
                     <option value="보기전용">보기전용 (조회만 가능)</option>
                 </select>
             </div>
-            <div class="form-group"><label>핸드폰 번호</label><input type="text" id="u_phone" placeholder="010-0000-0000"></div>
+            <div class="form-group"><label>핸드폰 번호</label><input type="text" id="u_phone" placeholder="000-0000-0000" maxlength="13" inputmode="numeric" oninput="this.value = fmtPhone(this.value)"></div>
             <div class="form-group"><label>이메일 주소</label><input type="text" id="u_email" placeholder="user@example.com"></div>
             <div style="display:flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
                 <button class="btn btn-outline" onclick="closeModal('userAdminModal')">취소</button>
@@ -3796,6 +3796,21 @@
             renderPaymentTable();
             renderDashboardCharts();
             alert("선택하신 회차의 수금 업로드 데이터가 일괄 삭제되었습니다.");
+        }
+
+        /* 전화번호 자동 하이픈: 000-0000-0000 (02 지역번호는 02-0000-0000) */
+        function fmtPhone(v) {
+            let d = String(v || '').replace(/\D/g, '').slice(0, 11);
+            if (d.startsWith('02')) {
+                d = d.slice(0, 10);
+                if (d.length <= 2) return d;
+                if (d.length <= 6) return d.slice(0, 2) + '-' + d.slice(2);
+                return d.slice(0, 2) + '-' + d.slice(2, d.length - 4) + '-' + d.slice(-4);
+            }
+            if (d.length <= 3) return d;
+            if (d.length <= 7) return d.slice(0, 3) + '-' + d.slice(3);
+            if (d.length <= 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+            return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
         }
 
         function resetMonthPayment() {
@@ -8359,7 +8374,7 @@
                     <td style="color:#94a3b8;">Firebase 인증</td>
                     <td>${u.role}</td>
                     <td>${u.name}</td>
-                    <td>${u.phone || '-'}</td>
+                    <td>${u.phone ? fmtPhone(u.phone) : '-'}</td>
                     <td>${u.email || '-'}</td>
                     <td class="text-center">${u.isBlocked ? '<span style="color:#dc2626; font-weight:700;">차단</span>' : '<span style="color:#10b981; font-weight:700;">정상</span>'}</td>
                     <td class="text-center">
@@ -8398,7 +8413,7 @@
             document.getElementById('u_pw').placeholder = '변경 시에만 입력 (본인 비밀번호만 직접 변경 가능)';
             document.getElementById('u_name').value = target.name || '';
             document.getElementById('u_role').value = target.role || '보기전용';
-            document.getElementById('u_phone').value = target.phone || '';
+            document.getElementById('u_phone').value = fmtPhone(target.phone || '');
             document.getElementById('u_email').value = target.email || '';
 
             openModal('userAdminModal');
@@ -9149,7 +9164,7 @@
             const pw = document.getElementById('u_pw').value;
             const name = document.getElementById('u_name').value.trim();
             const role = document.getElementById('u_role').value;
-            const phone = document.getElementById('u_phone').value.trim();
+            const phone = fmtPhone(document.getElementById('u_phone').value.trim());
             const email = document.getElementById('u_email').value.trim();
 
             if (!id || !name || (mode !== 'EDIT' && !pw)) {
