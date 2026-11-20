@@ -1381,10 +1381,10 @@
                                 <div class="menu-pop">
                                     <button onclick="downloadPaymentTemplate()">① 양식 다운로드</button>
                                     <button onclick="document.getElementById('paymentFileInput').click()">② 엑셀 업로드</button>
-                                    <div class="menu-sep"></div>
-                                    <button class="danger" onclick="openDeleteBatchModal()">회차별 삭제</button>
                                 </div>
                             </div>
+                            <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="openDeleteBatchModal()">🗑 회차별 삭제</button>
+                            <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px;" onclick="resetMonthPayment()">🗑 이 달 수금 초기화</button>
                             <button class="btn btn-danger editable-only" style="font-size: 12px; padding: 6px 12px; background-color: #b91c1c; border-color: #991b1b;" onclick="resetAllPaymentData()">⚠️ 수금 전체 초기화</button>
                             <button class="btn btn-outline" style="font-size: 12px; padding: 6px 12px;" onclick="downloadPaymentExcel()">엑셀 다운로드</button>
                         </div>
@@ -3796,6 +3796,34 @@
             renderPaymentTable();
             renderDashboardCharts();
             alert("선택하신 회차의 수금 업로드 데이터가 일괄 삭제되었습니다.");
+        }
+
+        function resetMonthPayment() {
+            if (!currentUser || currentUser.role === '보기전용') { alert('보기전용 계정은 수금 데이터를 초기화할 수 없습니다.'); return; }
+            let sel = document.getElementById('paySelectMonth');
+            let ym = sel ? sel.value : '';
+            if (!/^\d{4}-\d{2}$/.test(ym)) { alert('조회 연월을 선택해 주세요.'); return; }
+            let targets = [], closedSkip = 0, sum = 0;
+            Object.keys(paymentDataMap).forEach(no => {
+                let e = paymentDataMap[no] && paymentDataMap[no][ym];
+                if (!e || !(e.paid > 0)) return;
+                if (payIsClosed(payMonthOf(ym, e))) { closedSkip++; return; }
+                targets.push(no); sum += e.paid;
+            });
+            if (!targets.length) { alert(`${ym} 청구월에 초기화할 수납 내역이 없습니다.` + (closedSkip ? `\n(마감된 달 ${closedSkip}건은 제외됨)` : '')); return; }
+            let inp = prompt(`⚠️ ${ym} 청구월에 등록된 수납 내역을 모두 초기화합니다.\n\n대상 ${targets.length.toLocaleString()}건 / 수납금액 합계 ${sum.toLocaleString()}원` + (closedSkip ? `\n(마감된 달 ${closedSkip}건은 제외)` : '') + `\n\n다른 달 수금과 비고는 그대로 유지됩니다.\n진행하려면 '초기화'를 입력해 주세요.`);
+            if (inp !== '초기화') { if (inp !== null) alert('입력값이 일치하지 않아 취소되었습니다.'); return; }
+            targets.forEach(no => {
+                let e = paymentDataMap[no][ym];
+                paymentDataMap[no][ym] = { ...e, paid: 0, paidDate: '', unpaid: Math.max(0, (e.amount || 0)) };
+                logEditRecord('PAY', no, `[이 달 수금 초기화] ${ym} 수납금액 ${(e.paid || 0).toLocaleString()}원 삭제`);
+            });
+            let set = new Set(targets);
+            uploadBatchList.forEach(b => { b.records = (b.records || []).filter(r => !(r.monthKey === ym && set.has(r.no))); b.count = b.records.length; });
+            uploadBatchList = uploadBatchList.filter(b => b.records.length);
+            saveLocalStorage(); syncToFirebase();
+            renderPaymentTable(); renderDashboardCharts();
+            alert(`${ym} 수납 내역 ${targets.length}건이 초기화되었습니다.`);
         }
 
         function resetAllPaymentData() {
