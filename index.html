@@ -1890,6 +1890,7 @@
                         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="csOpenHistory()">🕘 확정 이력</button>
                         <button class="btn btn-primary" id="csConfirmBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csConfirmMonth()">✅ 정산 확정</button>
                         <button class="btn btn-outline" id="csUnconfirmBtn" style="font-size:12px; padding:6px 12px; display:none; color:#dc2626; border-color:#fca5a5;" onclick="csUnconfirmMonth()">🔓 확정 해제</button>
+                        <button class="btn btn-outline" id="csRestoreBtn" style="font-size:12px; padding:6px 12px; display:none; color:#059669; border-color:#6ee7b7;" onclick="csRestoreConfirm()">↩ 확정 복원</button>
                         <button class="btn btn-outline" id="csGenBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csGenPrev()"></button>
                     </div>
                     <div id="csConfirmBanner" style="display:none;"></div>
@@ -4542,7 +4543,7 @@
 
         function vsNormalize() {
             if (!vsSettle || typeof vsSettle !== 'object') vsSettle = {};
-            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'commManual', 'payClosed', 'billClosed'].forEach(k => {
+            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'commPrev', 'commManual', 'payClosed', 'billClosed'].forEach(k => {
                 if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
             });
             if (!Array.isArray(vsSettle.confirmLog)) vsSettle.confirmLog = [];
@@ -6025,6 +6026,7 @@
             else { banner.style.cssText = 'display:block; margin-top:10px; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:600; background:#fffbeb; color:#b45309; border:1px solid #fcd34d;'; banner.innerText = '📝 미확정 · 시스템 데이터에 따라 내용이 계속 바뀝니다. 확정하면 현재 내용으로 고정됩니다.'; }
             document.getElementById('csConfirmBtn').style.display = (!cf && vsIsAdmin()) ? '' : 'none';
             document.getElementById('csUnconfirmBtn').style.display = (cf && vsIsAdmin()) ? '' : 'none';
+            document.getElementById('csRestoreBtn').style.display = (!cf && vsSettle.commPrev && vsSettle.commPrev[csCurrentMonth] && vsIsAdmin()) ? '' : 'none';
             document.getElementById('csAddBtn').style.display = (!cf && vsCanEdit()) ? '' : 'none';
             let cm = (vsSettle.commManual && vsSettle.commManual[ym]) || {};
             let cAdd = Object.values(cm).filter(x => x && x.add).length, cRem = Object.values(cm).filter(x => x === 'remove').length;
@@ -6299,6 +6301,7 @@
             if (!confirm(`${csYmLabel(ym)} 영업수수료 정산을 확정할까요?\n\n· ${g.length}개 대리점 / ${rows.length}개 매장\n· 정산금 합계 ${vsNum(total)}원 (${csPayDate(ym)} 지급 예정)\n· 확정 후에는 고객·수금 데이터가 바뀌어도 이 내용이 그대로 유지됩니다.\n· 관리자는 언제든 확정을 해제할 수 있습니다.`)) return;
             let by = currentUser.name || currentUser.id;
             vsSettle.commConfirmed[ym] = { at: vsNowStr(), by: by, rows: rows };
+            delete vsSettle.commPrev[ym];
             vsSettle.confirmLog.push({ ym: ym, kind: '영업수수료', action: '확정', by: by, at: vsSettle.commConfirmed[ym].at, det: `${g.length}개 대리점 · ${rows.length}개 매장 · 정산금 ${vsNum(total)}원` });
             vsSave();
             renderCommissionSettle();
@@ -6309,8 +6312,23 @@
             if (!vsIsAdmin()) { alert('관리자만 확정을 해제할 수 있습니다.'); return; }
             if (!csIsConfirmed(ym)) return;
             if (!confirm(`${csYmLabel(ym)} 영업수수료 정산 확정을 해제할까요?\n해제하면 현재 시스템 데이터 기준으로 다시 집계됩니다.`)) return;
+            vsSettle.commPrev[ym] = vsSettle.commConfirmed[ym];   // 해제 직전 확정본 보관 (복원용)
             delete vsSettle.commConfirmed[ym];
             vsSettle.confirmLog.push({ ym: ym, kind: '영업수수료', action: '확정 해제', by: currentUser.name || currentUser.id, at: vsNowStr() });
+            vsSave();
+            renderCommissionSettle();
+        }
+        /* 확정 해제 취소: 해제 직전에 보관된 확정본으로 되돌림 */
+        function csRestoreConfirm() {
+            vsNormalize();
+            let ym = csCurrentMonth, p = vsSettle.commPrev[ym];
+            if (!vsIsAdmin()) { alert('관리자만 확정을 복원할 수 있습니다.'); return; }
+            if (csIsConfirmed(ym) || !p) return;
+            let g = csGroup(p.rows), total = vsSum(p.rows, r => r.settle);
+            if (!confirm(`${csYmLabel(ym)} 영업수수료 정산을 해제 전 확정 상태로 복원할까요?\n\n· 확정 시각 ${p.at} (${p.by})\n· ${g.length}개 대리점 / ${p.rows.length}개 매장\n· 정산금 합계 ${vsNum(total)}원`)) return;
+            vsSettle.commConfirmed[ym] = p;
+            delete vsSettle.commPrev[ym];
+            vsSettle.confirmLog.push({ ym: ym, kind: '영업수수료', action: '확정', by: currentUser.name || currentUser.id, at: vsNowStr(), det: `확정 복원 · ${g.length}개 대리점 · ${p.rows.length}개 매장 · 정산금 ${vsNum(total)}원` });
             vsSave();
             renderCommissionSettle();
         }
