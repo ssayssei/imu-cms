@@ -1831,6 +1831,7 @@
                         <div class="form-group"><label>작성일</label><input type="date" id="cx_date" oninput="csRefreshExpense()"></div>
                         <div class="form-group"><label>작성자</label><input type="text" id="cx_drafter" oninput="csRefreshExpense()"></div>
                     </div>
+                    <div class="form-group"><label>표시할 입금 월 <span style="font-weight:400; color:#64748b;">(최대 3개월 · 1개월 이상 선택)</span></label><div id="csExpMonths" style="display:flex; gap:14px; flex-wrap:wrap; padding:6px 2px;"></div></div>
                     <div class="form-group"><label>비고</label><input type="text" id="cx_memo" placeholder="추가로 기재할 내용이 있으면 입력해 주세요" oninput="csRefreshExpense()"></div>
                     <div style="background:#e2e8f0; padding:12px; border-radius:6px; max-height:46vh; overflow:auto;">
                         <div id="csExpensePreview" style="width:794px; margin:0 auto; background:#fff;"></div>
@@ -6333,8 +6334,24 @@
             el('cx_date').value = new Date().toISOString().slice(0, 10);
             el('cx_drafter').value = currentUser ? (currentUser.name || currentUser.id || '') : '';
             el('cx_memo').value = '';
+            csRenderExpMonths();
             openModal('csExpenseModal');
             csRefreshExpense();
+        }
+        /* 문서에 표시할 입금 월 선택 (정산 월 포함 최근 3개월 중 선택) */
+        function csRenderExpMonths() {
+            let box = document.getElementById('csExpMonths'); if (!box) return;
+            box.innerHTML = csWindow(csCurrentMonth).map(m => `<label style="display:flex; align-items:center; gap:5px; font-size:13px; cursor:pointer;"><input type="checkbox" class="csExpMonthChk" value="${m}" checked onchange="csExpMonthChanged(this)"> ${csYmLabel(m)}</label>`).join('');
+        }
+        function csExpMonthChanged(el) {
+            if (![...document.querySelectorAll('.csExpMonthChk')].some(c => c.checked)) { el.checked = true; alert('최소 1개월은 선택해야 합니다.'); }
+            csRefreshExpense();
+        }
+        function csSelIdx() {
+            let win = csWindow(csCurrentMonth);
+            let sel = [...document.querySelectorAll('.csExpMonthChk')].filter(c => c.checked).map(c => c.value);
+            let idx = win.map((m, k) => k).filter(k => sel.includes(win[k]));
+            return idx.length ? idx : win.map((m, k) => k);
         }
         function csRefreshExpense() { let el = document.getElementById('csExpensePreview'); if (el) el.innerHTML = csBuildExpenseHtml(); }
         /* 입금내역서: 정산 연월 + 직전 2개월(최근 3개월) CMS 입금 내역만 표시 (영업수수료/정산금 미표시) */
@@ -6355,14 +6372,15 @@
                 if (x.t === 'end') return '해지';
                 return '-';
             };
-            let sumRow = r => vsSum(r.cells, x => x.v || 0);
-            let colTot = [0, 1, 2].map(k => vsSum(D.rows, r => r.cells[k].v || 0));
-            let grand = colTot[0] + colTot[1] + colTot[2];
+            let idx = csSelIdx(), nM = idx.length;
+            let sumRow = r => vsSum(idx, k => r.cells[k].v || 0);
+            let colTot = idx.map(k => vsSum(D.rows, r => r.cells[k].v || 0));
+            let grand = colTot.reduce((a, b) => a + b, 0);
             let body = '';
             D.groups.forEach(g => {
                 g.rows.forEach((r, i) => {
                     let top = i === 0 ? 'border-top:2px solid #475569;' : '';
-                    body += `<tr style="page-break-inside:avoid;">${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} font-weight:700; vertical-align:middle; background:#f8fafc;">${escHtml(g.agency)}</td>` : ''}<td style="${td} ${top}">${escHtml(r.store)}</td><td style="${td} ${top} text-align:center;">${r.qty}</td><td style="${td} ${top} text-align:right;">${vsNum(r.bill)}</td>${r.cells.map(x => `<td style="${td} ${top} text-align:right;">${cellTxt(x, r.bill)}</td>`).join('')}<td style="${td} ${top} text-align:right; font-weight:700;">${vsNum(sumRow(r))}</td></tr>`;
+                    body += `<tr style="page-break-inside:avoid;">${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} font-weight:700; vertical-align:middle; background:#f8fafc;">${escHtml(g.agency)}</td>` : ''}<td style="${td} ${top}">${escHtml(r.store)}</td><td style="${td} ${top} text-align:center;">${r.qty}</td><td style="${td} ${top} text-align:right;">${vsNum(r.bill)}</td>${idx.map(k => `<td style="${td} ${top} text-align:right;">${cellTxt(r.cells[k], r.bill)}</td>`).join('')}${nM > 1 ? `<td style="${td} ${top} text-align:right; font-weight:700;">${vsNum(sumRow(r))}</td>` : ''}</tr>`;
                 });
             });
             let box = (label, value, sub) => `<td style="border:1px solid #475569; padding:10px 8px; text-align:center; width:25%;">
@@ -6372,22 +6390,22 @@
             return `<div style="${outer}">
                 <div style="text-align:center; font-size:24px; font-weight:800; letter-spacing:1px;">${escHtml(title)}</div>
                 <table style="border-collapse:collapse; width:100%; margin-top:22px;">
-                    <tr><td style="${th} width:15%; font-size:11.5px;">기준 연월</td><td style="${td} width:35%; font-size:11.5px;">${csYmLabel(D.ym)} (최근 3개월: ${D.win.map(csMm).join('·')})</td><td style="${th} width:15%; font-size:11.5px;">작성일</td><td style="${td} width:35%; font-size:11.5px;">${fmtDate(v('cx_date'))}</td></tr>
+                    <tr><td style="${th} width:15%; font-size:11.5px;">기준 연월</td><td style="${td} width:35%; font-size:11.5px;">${csYmLabel(D.ym)} (표시 월: ${idx.map(k => csMm(D.win[k])).join('·')})</td><td style="${th} width:15%; font-size:11.5px;">작성일</td><td style="${td} width:35%; font-size:11.5px;">${fmtDate(v('cx_date'))}</td></tr>
                     <tr><td style="${th} font-size:11.5px;">대리점 / 매장</td><td style="${td} font-size:11.5px;">${vsNum(D.groups.length)}개 대리점 · ${vsNum(D.rows.length)}개 매장</td><td style="${th} font-size:11.5px;">작성자</td><td style="${td} font-size:11.5px;">${escHtml(v('cx_drafter'))}</td></tr>
                 </table>
                 <table style="border-collapse:collapse; width:100%; margin-top:14px;">
-                    <tr>${D.win.map((m, k) => box(csMm(m) + ' CMS 입금 (원)', vsNum(colTot[k]))).join('')}${box('3개월 입금 합계 (원)', vsNum(grand))}</tr>
+                    <tr>${idx.map((k, j) => box(csMm(D.win[k]) + ' CMS 입금 (원)', vsNum(colTot[j]))).join('')}${nM > 1 ? box(nM + '개월 입금 합계 (원)', vsNum(grand)) : ''}</tr>
                 </table>
                 <div style="margin-top:20px; font-size:13px; font-weight:800;">대리점별 CMS 입금 내역 <span style="font-size:11px; font-weight:500; color:#64748b;">(금액 단위: 원, 모두 VAT 포함)</span></div>
                 <table style="border-collapse:collapse; width:100%; margin-top:6px;">
-                    <thead><tr><th style="${th} width:96px;">대리점</th><th style="${th}">매장명</th><th style="${th} width:32px; white-space:nowrap;">수량</th><th style="${th} width:64px;">월 청구<br>비용</th>${D.win.map(m => `<th style="${th} width:68px;">${csMm(m)}<br>입금</th>`).join('')}<th style="${th} width:76px;">3개월<br>입금 합계</th></tr></thead>
+                    <thead><tr><th style="${th} width:96px;">대리점</th><th style="${th}">매장명</th><th style="${th} width:32px; white-space:nowrap;">수량</th><th style="${th} width:64px;">월 청구<br>비용</th>${idx.map(k => `<th style="${th} width:68px;">${csMm(D.win[k])}<br>입금</th>`).join('')}${nM > 1 ? `<th style="${th} width:76px;">${nM}개월<br>입금 합계</th>` : ''}</tr></thead>
                     <tbody>
                     ${body}
-                    <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="2">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td}"></td>${colTot.map(t => `<td style="${td} text-align:right;">${vsNum(t)}</td>`).join('')}<td style="${td} text-align:right;">${vsNum(grand)}</td></tr>
+                    <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="2">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td}"></td>${colTot.map(t => `<td style="${td} text-align:right;">${vsNum(t)}</td>`).join('')}${nM > 1 ? `<td style="${td} text-align:right;">${vsNum(grand)}</td>` : ''}</tr>
                     </tbody>
                 </table>
                 <div style="margin-top:14px; font-size:11px; color:#475569; line-height:1.7; page-break-inside:avoid;">
-                    ※ AI스캐너 고객관리의 사용 매장과 수금관리의 최근 3개월 CMS 입금 내역을 기준으로 집계한 입금 내역입니다. 금액 단위는 원(VAT 포함)입니다.<br>
+                    ※ AI스캐너 고객관리의 사용 매장과 수금관리의 CMS 입금 내역(선택한 월)을 기준으로 집계한 입금 내역입니다. 금액 단위는 원(VAT 포함)입니다.<br>
                     ※ 미납은 해당 월 청구금액이 입금되지 않은 매장이며, 소급은 미납분을 일괄 입금한 경우입니다.<br>
                     ${v('cx_memo') ? '※ ' + escHtml(v('cx_memo')) : ''}
                 </div>
@@ -6413,7 +6431,7 @@
             D.groups.forEach(g => {
                 g.rows.forEach((r, i) => {
                     let top = i === 0 ? 'border-top:2px solid #475569;' : '';
-                    body += `<tr style="page-break-inside:avoid;">${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} font-weight:700; vertical-align:middle; background:#f8fafc;">${escHtml(g.agency)}</td>` : ''}<td style="${td} ${top}">${escHtml(r.store)}</td><td style="${td} ${top} text-align:center;">${r.qty}</td><td style="${td} ${top} ${tr}">${vsNum(r.payback)}</td>${r.cells.map(x => `<td style="${td} ${top} ${typeof csCellText(x) === 'number' ? tr : 'text-align:center;'}">${typeof csCellText(x) === 'number' ? vsNum(csCellText(x)) : csCellText(x)}</td>`).join('')}<td style="${td} ${top} ${tr}">${vsNum(r.settle)}</td>${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} ${tr} font-weight:800; vertical-align:middle; background:#eff6ff;">${vsNum(g.settle)}</td>` : ''}</tr>`;
+                    body += `<tr style="page-break-inside:avoid;">${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} font-weight:700; vertical-align:middle; background:#f8fafc;">${escHtml(g.agency)}</td>` : ''}<td style="${td} ${top}">${escHtml(r.store)}</td><td style="${td} ${top} text-align:center;">${r.qty}</td><td style="${td} ${top} ${tr}">${vsNum(r.payback)}</td>${r.cells.filter((x, k) => csSelIdx().includes(k)).map(x => `<td style="${td} ${top} ${typeof csCellText(x) === 'number' ? tr : 'text-align:center;'}">${typeof csCellText(x) === 'number' ? vsNum(csCellText(x)) : csCellText(x)}</td>`).join('')}<td style="${td} ${top} ${tr}">${vsNum(r.settle)}</td>${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} ${tr} font-weight:800; vertical-align:middle; background:#eff6ff;">${vsNum(g.settle)}</td>` : ''}</tr>`;
                 });
             });
             return `<div style="${outer}">
@@ -6428,10 +6446,10 @@
                 </table>
                 <div style="margin-top:20px; font-size:13px; font-weight:800;">대리점별 정산 내역 <span style="font-size:11px; font-weight:500; color:#64748b;">(금액 단위: 원, 모두 VAT 포함)</span></div>
                 <table style="border-collapse:collapse; width:100%; margin-top:6px;">
-                    <thead><tr><th style="${th} width:96px;">대리점</th><th style="${th}">매장명</th><th style="${th} width:32px; white-space:nowrap;">수량</th><th style="${th} width:56px;">월 영업<br>수수료</th>${D.win.map(m => `<th style="${th} width:60px;">${csMm(m)}<br>입금</th>`).join('')}<th style="${th} width:60px;">매장<br>정산금</th><th style="${th} width:66px;">대리점<br>정산금</th></tr></thead>
+                    <thead><tr><th style="${th} width:96px;">대리점</th><th style="${th}">매장명</th><th style="${th} width:32px; white-space:nowrap;">수량</th><th style="${th} width:56px;">월 영업<br>수수료</th>${D.win.filter((m, k) => csSelIdx().includes(k)).map(m => `<th style="${th} width:60px;">${csMm(m)}<br>입금</th>`).join('')}<th style="${th} width:60px;">매장<br>정산금</th><th style="${th} width:66px;">대리점<br>정산금</th></tr></thead>
                     <tbody>
                     ${body}
-                    <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="2">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td}"></td><td style="${td}"></td><td style="${td}"></td><td style="${td} ${tr}">${vsNum(D.dep)}</td><td style="${td} ${tr}">${vsNum(D.total)}</td><td style="${td} ${tr}">${vsNum(D.total)}</td></tr>
+                    <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="2">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td}"></td>${csSelIdx().map(k => `<td style="${td} ${tr}">${vsNum(vsSum(D.rows, r => r.cells[k].v || 0))}</td>`).join('')}<td style="${td} ${tr}">${vsNum(D.total)}</td><td style="${td} ${tr}">${vsNum(D.total)}</td></tr>
                     </tbody>
                 </table>
                 <div style="margin-top:14px; font-size:11px; color:#475569; line-height:1.7; page-break-inside:avoid;">
