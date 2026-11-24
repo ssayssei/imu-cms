@@ -1823,7 +1823,7 @@
             <div id="csExpenseModal" class="modal-overlay">
                 <div class="modal-card modal-card-large" style="width: 920px; max-height: 92vh; overflow:auto;">
                     <div class="modal-header">
-                        <span>📄 AI스캐너 영업수수료 정산내역서</span>
+                        <span id="csExpenseModalTitle">📄 AI스캐너 영업수수료 정산내역서</span>
                         <span style="cursor:pointer;" onclick="closeModal('csExpenseModal')">✕</span>
                     </div>
                     <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
@@ -1838,7 +1838,7 @@
                     <div style="font-size:11px; color:#64748b; margin-top:8px; line-height:1.6;">※ PDF 다운로드는 화면 그대로 이미지 형태의 PDF로 저장됩니다. 글자 선택·검색이 필요하면 [인쇄]에서 'PDF로 저장'을 선택하고 '머리글 및 바닥글'을 해제해 주세요.</div>
                     <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
                         <button class="btn btn-outline" onclick="closeModal('csExpenseModal')">닫기</button>
-                        <button class="btn btn-outline" onclick="csDownloadExcel()">📊 엑셀 다운로드</button>
+                        <button class="btn btn-outline" id="csXlsBtn" onclick="csDownloadExcel()">📊 엑셀 다운로드</button>
                         <button class="btn btn-outline" id="csPdfBtn" onclick="csDownloadPdf()">⬇ PDF 다운로드</button>
                         <button class="btn btn-primary" onclick="csPrintExpense()">🖨 인쇄</button>
                     </div>
@@ -1884,6 +1884,7 @@
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
                         <button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="csOpenExpense()">📄 정산내역서</button>
+                        <button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="csOpenDeposit()">📄 입금내역서</button>
                         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="csOpenInvMsg()">✉️ 세금계산서 요청 문자/메일</button>
                         <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="csOpenHistory()">🕘 확정 이력</button>
                         <button class="btn btn-primary" id="csConfirmBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="csConfirmMonth()">✅ 정산 확정</button>
@@ -6319,11 +6320,16 @@
             let ym = csCurrentMonth, rows = csBuildRows(ym), groups = csGroup(rows);
             return { ym, win: csWindow(ym), rows, groups, total: vsSum(rows, r => r.settle), dep: vsSum(rows, r => r.cells[2].v), qty: vsSum(rows, r => r.qty) };
         }
-        function csOpenExpense() {
+        let csExpMode = 'settle';   // 'settle' 정산내역서 / 'dep' 입금내역서
+        function csOpenDeposit() { csOpenExpense('dep'); }
+        function csOpenExpense(mode) {
             vsNormalize();
             if (!csCurrentMonth) { alert('먼저 정산 월을 선택해 주세요.'); return; }
+            csExpMode = (mode === 'dep') ? 'dep' : 'settle';
             let el = id => document.getElementById(id);
-            if (!el('cx_title').value) el('cx_title').value = 'AI스캐너 영업수수료 정산내역서';
+            el('cx_title').value = csExpMode === 'dep' ? 'AI스캐너 CMS 입금내역서' : 'AI스캐너 영업수수료 정산내역서';
+            el('csExpenseModalTitle').innerText = csExpMode === 'dep' ? '📄 AI스캐너 CMS 입금내역서' : '📄 AI스캐너 영업수수료 정산내역서';
+            el('csXlsBtn').style.display = csExpMode === 'dep' ? 'none' : '';
             el('cx_date').value = new Date().toISOString().slice(0, 10);
             el('cx_drafter').value = currentUser ? (currentUser.name || currentUser.id || '') : '';
             el('cx_memo').value = '';
@@ -6331,7 +6337,64 @@
             csRefreshExpense();
         }
         function csRefreshExpense() { let el = document.getElementById('csExpensePreview'); if (el) el.innerHTML = csBuildExpenseHtml(); }
+        /* 입금내역서: 정산 연월 + 직전 2개월(최근 3개월) CMS 입금 내역만 표시 (영업수수료/정산금 미표시) */
+        function csBuildDepositHtml(forPrint) {
+            let v = id => (document.getElementById(id).value || '').trim();
+            let D = csExpenseData();
+            let th = 'border:1px solid #475569; background:#f1f5f9; padding:6px 3px; font-size:10.5px; font-weight:700; text-align:center;';
+            let td = 'border:1px solid #475569; padding:5px 6px; font-size:10.5px;';
+            let font = "font-family:'Malgun Gothic','Noto Sans KR','Apple SD Gothic Neo',sans-serif; color:#0f172a; box-sizing:border-box;";
+            let outer = forPrint ? font : font + ' width:794px; background:#fff; padding:38px 40px;';
+            let title = v('cx_title') || 'AI스캐너 CMS 입금내역서';
+            let fmtDate = s => s ? s.replace(/-/g, '.') : '';
+            let cellTxt = (x, bill) => {
+                if (x.t === 'paid') return vsNum(x.v) + (bill > 0 && x.v > bill * 1.5 ? ` <span style="font-size:9px; color:#b45309;">(소급)</span>` : '');
+                if (x.t === 'part') return vsNum(x.v) + ' <span style="font-size:9px; color:#b45309;">(부분)</span>';
+                if (x.t === 'unpaid') return '<span style="color:#dc2626;">미납</span>';
+                if (x.t === 'new') return '신규';
+                if (x.t === 'end') return '해지';
+                return '-';
+            };
+            let sumRow = r => vsSum(r.cells, x => x.v || 0);
+            let colTot = [0, 1, 2].map(k => vsSum(D.rows, r => r.cells[k].v || 0));
+            let grand = colTot[0] + colTot[1] + colTot[2];
+            let body = '';
+            D.groups.forEach(g => {
+                g.rows.forEach((r, i) => {
+                    let top = i === 0 ? 'border-top:2px solid #475569;' : '';
+                    body += `<tr style="page-break-inside:avoid;">${i === 0 ? `<td rowspan="${g.rows.length}" style="${td} ${top} font-weight:700; vertical-align:middle; background:#f8fafc;">${escHtml(g.agency)}</td>` : ''}<td style="${td} ${top}">${escHtml(r.store)}</td><td style="${td} ${top} text-align:center;">${r.qty}</td><td style="${td} ${top} text-align:right;">${vsNum(r.bill)}</td>${r.cells.map(x => `<td style="${td} ${top} text-align:right;">${cellTxt(x, r.bill)}</td>`).join('')}<td style="${td} ${top} text-align:right; font-weight:700;">${vsNum(sumRow(r))}</td></tr>`;
+                });
+            });
+            let box = (label, value, sub) => `<td style="border:1px solid #475569; padding:10px 8px; text-align:center; width:25%;">
+                <div style="font-size:11px; color:#64748b; font-weight:700;">${label}</div>
+                <div style="font-size:17px; font-weight:800; margin-top:3px;">${value}</div>
+                ${sub ? `<div style="font-size:10.5px; color:#64748b; margin-top:2px;">${sub}</div>` : ''}</td>`;
+            return `<div style="${outer}">
+                <div style="text-align:center; font-size:24px; font-weight:800; letter-spacing:1px;">${escHtml(title)}</div>
+                <table style="border-collapse:collapse; width:100%; margin-top:22px;">
+                    <tr><td style="${th} width:15%; font-size:11.5px;">기준 연월</td><td style="${td} width:35%; font-size:11.5px;">${csYmLabel(D.ym)} (최근 3개월: ${D.win.map(csMm).join('·')})</td><td style="${th} width:15%; font-size:11.5px;">작성일</td><td style="${td} width:35%; font-size:11.5px;">${fmtDate(v('cx_date'))}</td></tr>
+                    <tr><td style="${th} font-size:11.5px;">대리점 / 매장</td><td style="${td} font-size:11.5px;">${vsNum(D.groups.length)}개 대리점 · ${vsNum(D.rows.length)}개 매장</td><td style="${th} font-size:11.5px;">작성자</td><td style="${td} font-size:11.5px;">${escHtml(v('cx_drafter'))}</td></tr>
+                </table>
+                <table style="border-collapse:collapse; width:100%; margin-top:14px;">
+                    <tr>${D.win.map((m, k) => box(csMm(m) + ' CMS 입금 (원)', vsNum(colTot[k]))).join('')}${box('3개월 입금 합계 (원)', vsNum(grand))}</tr>
+                </table>
+                <div style="margin-top:20px; font-size:13px; font-weight:800;">대리점별 CMS 입금 내역 <span style="font-size:11px; font-weight:500; color:#64748b;">(금액 단위: 원, 모두 VAT 포함)</span></div>
+                <table style="border-collapse:collapse; width:100%; margin-top:6px;">
+                    <thead><tr><th style="${th} width:96px;">대리점</th><th style="${th}">매장명</th><th style="${th} width:32px; white-space:nowrap;">수량</th><th style="${th} width:64px;">월 청구<br>비용</th>${D.win.map(m => `<th style="${th} width:68px;">${csMm(m)}<br>입금</th>`).join('')}<th style="${th} width:76px;">3개월<br>입금 합계</th></tr></thead>
+                    <tbody>
+                    ${body}
+                    <tr style="background:#f8fafc; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="2">합 계</td><td style="${td} text-align:center;">${vsNum(D.qty)}</td><td style="${td}"></td>${colTot.map(t => `<td style="${td} text-align:right;">${vsNum(t)}</td>`).join('')}<td style="${td} text-align:right;">${vsNum(grand)}</td></tr>
+                    </tbody>
+                </table>
+                <div style="margin-top:14px; font-size:11px; color:#475569; line-height:1.7; page-break-inside:avoid;">
+                    ※ AI스캐너 고객관리의 사용 매장과 수금관리의 최근 3개월 CMS 입금 내역을 기준으로 집계한 입금 내역입니다. 금액 단위는 원(VAT 포함)입니다.<br>
+                    ※ 미납은 해당 월 청구금액이 입금되지 않은 매장이며, 소급은 미납분을 일괄 입금한 경우입니다.<br>
+                    ${v('cx_memo') ? '※ ' + escHtml(v('cx_memo')) : ''}
+                </div>
+            </div>`;
+        }
         function csBuildExpenseHtml(forPrint) {
+            if (csExpMode === 'dep') return csBuildDepositHtml(forPrint);
             let v = id => (document.getElementById(id).value || '').trim();
             let D = csExpenseData();
             let th = 'border:1px solid #475569; background:#f1f5f9; padding:6px 3px; font-size:10.5px; font-weight:700; text-align:center;';
@@ -6404,11 +6467,11 @@
             XLSX.writeFile(wb, `AI스캐너_영업수수료정산_${D.ym}.xlsx`);
         }
         function csDownloadPdf() {
-            return vsDownloadPdf({ html: csBuildExpenseHtml(true), btnId: 'csPdfBtn', file: `AI_commission_statement_${csCurrentMonth}.pdf` });
+            return vsDownloadPdf({ html: csBuildExpenseHtml(true), btnId: 'csPdfBtn', file: (csExpMode === 'dep' ? `AI_CMS_deposit_${csCurrentMonth}.pdf` : `AI_commission_statement_${csCurrentMonth}.pdf`) });
         }
         function csPrintExpense() {
             let html = csBuildExpenseHtml(true);
-            let title = `AI스캐너_영업수수료정산내역서_${csCurrentMonth}`;
+            let title = (csExpMode === 'dep' ? 'AI스캐너_CMS입금내역서_' : 'AI스캐너_영업수수료정산내역서_') + csCurrentMonth;
             let old = document.getElementById('vsPrintFrame');
             if (old) old.remove();
             let fr = document.createElement('iframe');
@@ -6615,8 +6678,8 @@
         function pbQLabel(qk) { let m = pbMonths(qk); return `${qk.slice(0, 4)}년 ${qk.slice(-1)}분기 (${Number(m[0].slice(5))}~${Number(m[2].slice(5))}월)`; }
         function pbQEnded(qk) { let m = pbMonths(qk)[2], now = new Date(); return (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0')) > m; }
         function pbDefaultQuarter() {
-            let l = pbQuarterList(); let done = l.filter(pbQEnded);
-            return done.length ? done[done.length - 1] : l[l.length - 1];
+            let l = pbQuarterList();
+            return l[l.length - 1];   // 진행 중인 당월 분기를 기본으로 표시
         }
         function pbData(qk) {
             let months = pbMonths(qk), rows = [];
