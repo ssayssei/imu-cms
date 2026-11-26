@@ -4827,7 +4827,7 @@
             let reader = new FileReader();
             reader.onload = function (e) {
                 try {
-                    let wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    let wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellNF: true, cellStyles: true });
                     let ws = wb.Sheets[wb.SheetNames[0]];
                     let aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
                     vsListAnalyze(wb, ws, aoa, file.name);
@@ -4854,10 +4854,14 @@
             let custs = customerDataList.filter(c => c.type === 'AI스캐너');
             let byKey = {}; custs.forEach(c => { let k = vsNormName(c.viscoveryName); if (k) (byKey[k] = byKey[k] || []).push(c); });
             let pm = (() => { let y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7)) - 1; if (m < 1) { y--; m = 12; } return y + '-' + String(m).padStart(2, '0'); })();
-            let used = {}, items = [];
+            let off0 = { r: 0 };
+            try { if (ws['!ref'] && XLSX.utils.decode_range) off0.r = XLSX.utils.decode_range(ws['!ref']).s.r; } catch (e) {}
+            let isHidden = r => { let rr = (ws['!rows'] || [])[r + off0.r]; return !!(rr && rr.hidden); };   // 엑셀에서 숨김 처리한 행은 분석 제외
+            let used = {}, items = [], hiddenCnt = 0;
             for (let r = hr + 1; r < aoa.length; r++) {
                 let name = String(aoa[r][ci] || '').trim();
                 if (!name || /^total$/i.test(name)) continue;
+                if (isHidden(r)) { hiddenCnt++; continue; }
                 let amt = aoa[r][mc], qty = qc >= 0 ? aoa[r][qc] : '', st = sc >= 0 ? String(aoa[r][sc] || '').trim() : '', note = nc >= 0 ? String(aoa[r][nc] || '').trim() : '';
                 let amtN = typeof amt === 'number' ? amt : NaN;
                 let inst = di >= 0 ? (xlSerialToYMD(aoa[r][di]) || '') : '';
@@ -4885,11 +4889,11 @@
                 items.push(it);
             }
             // 시스템 정산에는 있는데 엑셀에 없는 매장
-            rows.forEach(r => { if (!used[r.key]) items.push({ r: -1, name: r.viscoveryName && r.viscoveryName !== '-' ? r.viscoveryName : r.excelName, inst: '', exTxt: '엑셀에 없음', sysTxt: `$${vsNum(r.usd)} · ${r.qty}대`, v: 'extra', flag: true, on: false, fill: null, msg: 'Viscovery명이 엑셀과 달라 매칭되지 않음 (고객관리 Viscovery명 확인)' }); });
+            rows.forEach(r => { if (!used[r.key]) items.push({ r: -1, name: r.viscoveryName && r.viscoveryName !== '-' ? r.viscoveryName : r.excelName, inst: '', exTxt: '엑셀에 없음', sysTxt: `$${vsNum(r.usd)} · ${r.qty}대`, v: 'extra', flag: true, on: false, fill: null, msg: '엑셀에 없거나 숨김 처리된 매장 / Viscovery명 불일치 (고객관리 Viscovery명 확인)' }); });
             let off = { r: 0, c: 0 };
             try { if (ws['!ref'] && XLSX.utils.decode_range) { let rg = XLSX.utils.decode_range(ws['!ref']); off = { r: rg.s.r, c: rg.s.c }; } } catch (e) {}
-            vsListState = { off: off, wb: wb, ws: ws, aoa: aoa, hr: hr, ci: ci, mc: mc, qc: qc, sc: sc, nc: nc, ym: ym, items: items, fname: fname };
-            document.getElementById('vsListStatus').innerText = `${fname} · ${vsMonthLabel(ym)} 열 기준`;
+            vsListState = { hiddenCnt: hiddenCnt, off: off, wb: wb, ws: ws, aoa: aoa, hr: hr, ci: ci, mc: mc, qc: qc, sc: sc, nc: nc, ym: ym, items: items, fname: fname };
+            document.getElementById('vsListStatus').innerText = `${fname} · ${vsMonthLabel(ym)} 열 기준` + (hiddenCnt ? ` · 숨김 ${hiddenCnt}행 제외` : '');
             vsListRender();
         }
         function vsListRender() {
