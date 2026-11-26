@@ -1705,7 +1705,7 @@
                         <span id="vsListTitle">📋 Viscovery 고객 리스트 확인</span>
                         <span style="cursor:pointer;" onclick="closeModal('vsListModal')">✕</span>
                     </div>
-                    <div style="font-size:12px; color:#64748b; margin-bottom:10px; line-height:1.6;">Viscovery에서 받은 고객 리스트 엑셀을 올리면 선택한 정산 월 열을 시스템 정산 내역과 비교해서, 자동으로 채울 수 있는 항목은 채우고 확인이 필요한 항목은 표시합니다. 결과는 <b>확인본 엑셀</b>로 내려받아 Viscovery에 회신할 수 있습니다.</div>
+                    <div style="font-size:12px; color:#64748b; margin-bottom:10px; line-height:1.6;">Viscovery에서 받은 고객 리스트 엑셀을 올리면 선택한 정산 월 열을 시스템 정산 내역과 비교해서, 자동으로 채울 수 있는 항목은 채우고 확인이 필요한 항목은 표시합니다. 결과는 화면 표 그대로 <b>엑셀</b>로 내려받을 수 있습니다.</div>
                     <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;">
                         <button class="btn btn-primary" onclick="vsListPick()">리스트 엑셀 업로드</button>
                         <span id="vsListStatus" style="font-size:12px; color:#475569;"></span>
@@ -1718,8 +1718,7 @@
                             <tbody id="vsListBody"><tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:30px;">리스트 엑셀을 업로드해 주세요.</td></tr></tbody>
                         </table>
                     </div>
-                    <div style="font-size:11px; color:#94a3b8; margin-top:8px;">※ 내려받는 확인본은 값 기준으로 저장되어 원본 엑셀의 색상·서식은 유지되지 않을 수 있습니다. 회신 전 한 번 확인해 주세요.</div>
-                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;"><button class="btn btn-excel" id="vsListDlBtn" onclick="vsListDownload()" disabled>📥 확인본 엑셀 다운로드</button><button class="btn btn-outline" onclick="closeModal('vsListModal')">닫기</button></div>
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;"><button class="btn btn-excel" id="vsListDlBtn" onclick="vsListDownload()" disabled>📥 확인결과 엑셀 다운로드</button><button class="btn btn-outline" onclick="closeModal('vsListModal')">닫기</button></div>
                 </div>
             </div>
             <div id="vsInvoiceModal" class="modal-overlay">
@@ -4933,16 +4932,27 @@
                 if (st.qc >= 0) ws[enc({ r: tr, c: st.qc })] = { t: 'n', v: sumCol(st.qc) };
             }
         }
+        function vsListVisible() {
+            let st = vsListState; if (!st) return [];
+            let only = document.getElementById('vsListOnlyAct').checked;
+            return st.items.filter(i => !only || i.flag || i.fill || i.v === 'free');
+        }
+        /* 확인결과 엑셀: 화면 표에 보이는 내용 그대로 저장 (변경·확인 항목만 보기 체크 상태 반영) */
         function vsListDownload() {
             let st = vsListState; if (!st) return;
-            let n = st.items.filter(i => i.fill && i.on).length;
-            if (!n && !confirm('자동 반영할 항목이 없습니다. 원본 그대로 저장할까요?')) return;
-            vsListApplyFill(st.ws, st, true);
-            let name = st.fname.replace(/\.xlsx?$/i, '') + '_확인본.xlsx';
-            XLSX.writeFile(st.wb, name);
-            // 다시 내려받아도 중복 반영되지 않도록 원본 상태로 재분석
-            vsListState = null; document.getElementById('vsListBody').innerHTML = '<tr><td colspan="7" style="text-align:center; color:#059669; padding:30px; font-weight:700;">확인본을 저장했습니다. 다시 확인하려면 엑셀을 다시 업로드해 주세요.</td></tr>';
-            document.getElementById('vsListSummary').innerHTML = ''; document.getElementById('vsListDlBtn').disabled = true;
+            let list = vsListVisible();
+            let head = ['반영', 'Viscovery명', '설치일', `엑셀(${vsMonthLabel(st.ym)})`, '시스템', '판정', '확인', '자동 채움 / 사유'];
+            let rows = list.map(i => [i.fill ? (i.on ? '반영' : '미반영') : '', i.name, i.inst || '', i.exTxt, i.sysTxt, VS_LIST_J[i.v].t, i.flag ? '확인 필요' : '', i.msg || '']);
+            let ws = XLSX.utils.aoa_to_sheet([head].concat(rows));
+            ws['!cols'] = [{ wch: 7 }, { wch: 34 }, { wch: 12 }, { wch: 22 }, { wch: 24 }, { wch: 14 }, { wch: 10 }, { wch: 80 }];
+            try { ws['!autofilter'] = { ref: 'A1:H' + (rows.length + 1) }; } catch (e) {}
+            let cnt = {}; st.items.forEach(i => { cnt[i.v] = (cnt[i.v] || 0) + 1; });
+            let sum = [['항목', '건수']].concat(Object.keys(VS_LIST_J).filter(k => cnt[k]).map(k => [VS_LIST_J[k].t, cnt[k]])).concat([['확인 필요', st.items.filter(i => i.flag).length], ['자동 반영', st.items.filter(i => i.on).length], ['숨김 제외 행', st.hiddenCnt || 0]]);
+            let ws2 = XLSX.utils.aoa_to_sheet(sum); ws2['!cols'] = [{ wch: 16 }, { wch: 8 }];
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '확인결과');
+            XLSX.utils.book_append_sheet(wb, ws2, '요약');
+            XLSX.writeFile(wb, `Viscovery_리스트_확인결과_${st.ym}.xlsx`);
         }
 
         /* ===== 설치일 대량 업로드 (Viscovery 고객 리스트 엑셀: Category = Viscovery명, Account Creation = 설치일) ===== */
