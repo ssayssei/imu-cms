@@ -1793,6 +1793,31 @@
                     </div>
                 </div>
             </div>
+            <!-- [페이백] 정산내역서 모달 -->
+            <div id="pbExpenseModal" class="modal-overlay">
+                <div class="modal-card modal-card-large" style="width: 920px; max-height: 92vh; overflow:auto;">
+                    <div class="modal-header">
+                        <span>📄 페이백 정산내역서</span>
+                        <span style="cursor:pointer;" onclick="closeModal('pbExpenseModal')">✕</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px;">
+                        <div class="form-group" style="grid-column: span 2;"><label>문서 제목</label><input type="text" id="px_title" oninput="pbRefreshExpense()"></div>
+                        <div class="form-group"><label>작성일</label><input type="date" id="px_date" oninput="pbRefreshExpense()"></div>
+                        <div class="form-group"><label>작성자</label><input type="text" id="px_drafter" oninput="pbRefreshExpense()"></div>
+                    </div>
+                    <div class="form-group"><label>비고</label><input type="text" id="px_memo" placeholder="추가로 기재할 내용이 있으면 입력해 주세요" oninput="pbRefreshExpense()"></div>
+                    <div style="background:#e2e8f0; padding:12px; border-radius:6px; max-height:46vh; overflow:auto;">
+                        <div id="pbExpensePreview" style="width:794px; margin:0 auto; background:#fff;"></div>
+                    </div>
+                    <div style="font-size:11px; color:#64748b; margin-top:8px; line-height:1.6;">※ PDF 다운로드는 화면 그대로 이미지 형태의 PDF로 저장됩니다. 글자 선택·검색이 필요하면 [인쇄]에서 'PDF로 저장'을 선택하고 '머리글 및 바닥글'을 해제해 주세요.</div>
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+                        <button class="btn btn-outline" onclick="closeModal('pbExpenseModal')">닫기</button>
+                        <button class="btn btn-outline" onclick="pbDownloadExcel()">📊 엑셀 다운로드</button>
+                        <button class="btn btn-outline" id="pbPdfBtn" onclick="pbDownloadPdf()">⬇ PDF 다운로드</button>
+                        <button class="btn btn-primary" onclick="pbPrint()">🖨 인쇄</button>
+                    </div>
+                </div>
+            </div>
             <div id="vsHistoryModal" class="modal-overlay">
                 <div class="modal-card modal-card-large" style="width: 720px; max-height: 88vh; overflow:auto;">
                     <div class="modal-header">
@@ -2055,10 +2080,13 @@
                         <div class="filter-group"><label>정산 분기:</label><select id="pbQuarterSelect" class="filter-select" onchange="pbChangeQuarter(this.value)"></select></div>
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
-                        <button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="pbDownloadExcel()">엑셀 다운로드</button>
-                        <button class="btn btn-outline" id="pbPdfBtn" style="font-size:12px; padding:6px 12px;" onclick="pbDownloadPdf()">PDF 다운로드</button>
-                        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="pbPrint()">인쇄</button>
+                        <button class="btn btn-excel" style="font-size:12px; padding:6px 12px;" onclick="pbOpenExpense()">📄 정산내역서</button>
+                        <button class="btn btn-outline" style="font-size:12px; padding:6px 12px;" onclick="pbOpenHistory()">🕘 확정 이력</button>
+                        <button class="btn btn-primary" id="pbConfirmBtn" style="font-size:12px; padding:6px 12px; display:none;" onclick="pbConfirmQuarter()">✅ 정산 확정</button>
+                        <button class="btn btn-outline" id="pbUnconfirmBtn" style="font-size:12px; padding:6px 12px; display:none; color:#dc2626; border-color:#fca5a5;" onclick="pbUnconfirmQuarter()">🔓 확정 해제</button>
+                        <button class="btn btn-outline" id="pbRestoreBtn" style="font-size:12px; padding:6px 12px; display:none; color:#059669; border-color:#6ee7b7;" onclick="pbRestoreConfirm()">↩ 확정 복원</button>
                     </div>
+                    <div id="pbConfirmBanner" style="display:none;"></div>
                 </div>
                 <div class="vs-kpi-grid" id="pbKpiGrid"></div>
                 <div class="content-card" style="margin-bottom:16px;">
@@ -4595,7 +4623,7 @@
 
         function vsNormalize() {
             if (!vsSettle || typeof vsSettle !== 'object') vsSettle = {};
-            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'commPrev', 'viscPrev', 'viscEdit', 'listChecks', 'commManual', 'payClosed', 'billClosed'].forEach(k => {
+            ['snapshots', 'overrides', 'fx', 'invoices', 'manual', 'confirmed', 'generated', 'commConfirmed', 'commPrev', 'viscPrev', 'pbConfirmed', 'pbPrev', 'viscEdit', 'listChecks', 'commManual', 'payClosed', 'billClosed'].forEach(k => {
                 if (!vsSettle[k] || typeof vsSettle[k] !== 'object') vsSettle[k] = {};
             });
             if (!Array.isArray(vsSettle.confirmLog)) vsSettle.confirmLog = [];
@@ -6129,7 +6157,7 @@
                 let isC = l.action === '확정' || l.action === '마감';
                 let tag = `<span style="font-size:11px; font-weight:700; padding:1px 8px; border-radius:4px; ${isC ? 'background:#ecfdf5; color:#047857; border:1px solid #6ee7b7;' : 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5;'}">${escHtml(l.action)}</span>`;
                 let det = l.det ? escHtml(l.det) : isC ? `${l.stores !== undefined ? vsNum(l.stores) + '개 매장 · ' : ''}${vsNum(l.qty)}대 · $${vsNum(l.usd)}` : '-';
-                return `<tr><td>${escHtml(l.at)}</td><td class="text-center">${vsMonthLabel(l.ym)}</td><td class="text-center">${tag}</td><td class="text-center">${escHtml(l.by)}</td><td>${det}</td></tr>`;
+                return `<tr><td>${escHtml(l.at)}</td><td class="text-center">${/-Q\d$/.test(l.ym) ? pbQLabel(l.ym) : vsMonthLabel(l.ym)}</td><td class="text-center">${tag}</td><td class="text-center">${escHtml(l.by)}</td><td>${det}</td></tr>`;
             }).join('') : `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:24px;">확정 이력이 없습니다.</td></tr>`;
         }
 
@@ -7191,9 +7219,11 @@
             let l = pbQuarterList();
             return l[l.length - 1];   // 진행 중인 당월 분기를 기본으로 표시
         }
+        function pbIsConfirmed(qk) { return !!(vsSettle && vsSettle.pbConfirmed && vsSettle.pbConfirmed[qk]); }
         function pbData(qk) {
             let months = pbMonths(qk), rows = [];
-            Object.keys(paybackMap).forEach(k => {
+            if (pbIsConfirmed(qk)) rows = JSON.parse(JSON.stringify(vsSettle.pbConfirmed[qk].rows || []));
+            else Object.keys(paybackMap).forEach(k => {
                 let c = pbCust(k); if (!c) return;
                 let pb = paybackMap[k], ratio = pbRatio(c, pb);
                 let cms = months.map(m => payCashSum(c.no, m));
@@ -7224,6 +7254,14 @@
             let D = pbData(pbQuarter);
             document.getElementById('pbStatusText').innerText = `${pbQLabel(pbQuarter)} · 수금관리의 월별 CMS 입금 기준${pbQEnded(pbQuarter) ? '' : ' (진행 중인 분기라 입금이 더 늘어날 수 있습니다)'}`;
             let paidStores = D.rows.filter(r => r.total > 0).length;
+            vsNormalize();
+            let pcf = vsSettle.pbConfirmed[pbQuarter] || null, pbn = document.getElementById('pbConfirmBanner');
+            pbn.style.display = 'block';
+            pbn.style.cssText = 'display:block; margin-top:10px; padding:8px 12px; border-radius:6px; font-size:12px; font-weight:600; ' + (pcf ? 'background:#ecfdf5; color:#047857; border:1px solid #6ee7b7;' : 'background:#fffbeb; color:#b45309; border:1px solid #fcd34d;');
+            pbn.innerText = pcf ? `🔒 확정된 정산 · ${pcf.at} · ${pcf.by} (확정 시점의 내용으로 고정되어 있습니다)` : '📝 미확정 · 시스템 데이터에 따라 내용이 계속 바뀝니다. 확정하면 현재 내용으로 고정됩니다.';
+            document.getElementById('pbConfirmBtn').style.display = (!pcf && vsIsAdmin()) ? '' : 'none';
+            document.getElementById('pbUnconfirmBtn').style.display = (pcf && vsIsAdmin()) ? '' : 'none';
+            document.getElementById('pbRestoreBtn').style.display = (!pcf && vsSettle.pbPrev[pbQuarter] && vsIsAdmin()) ? '' : 'none';
             let kpi = (l, v, sub) => `<div class="vs-kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${sub || ''}</div></div>`;
             document.getElementById('pbKpiGrid').innerHTML =
                 kpi('정산 대리점 수', vsNum(D.groups.filter(g => g.total > 0).length) + '곳', `전체 ${vsNum(D.groups.length)}곳`) +
@@ -7259,6 +7297,59 @@
             if (body && pbFilter.agency === 'ALL' && !q) body += `<tr style="background:#f1f5f9; font-weight:800;"><td colspan="5" class="text-right">총 합 계</td>` + D.months.map((m, i) => `<td class="text-right">${vsNum(D.cms[i])}</td><td class="text-right">${vsNum(D.pays[i])}</td>`).join('') + `<td class="text-right">${vsNum(D.total)}</td></tr>`;
             document.getElementById('pbDetailBody').innerHTML = body || `<tr><td colspan="${6 + D.months.length * 2}" style="text-align:center; color:#94a3b8; padding:24px;">표시할 내역이 없습니다.</td></tr>`;
         }
+        /* ---- 페이백 정산: 정산내역서 / 확정 / 해제 / 복원 / 이력 ---- */
+        function pbOpenExpense() {
+            vsNormalize();
+            let el = id => document.getElementById(id);
+            el('px_title').value = '페이백 정산내역서';
+            el('px_date').value = new Date().toISOString().slice(0, 10);
+            el('px_drafter').value = currentUser ? (currentUser.name || currentUser.id || '') : '';
+            el('px_memo').value = '';
+            openModal('pbExpenseModal');
+            pbRefreshExpense();
+        }
+        function pbRefreshExpense() { let el = document.getElementById('pbExpensePreview'); if (el) el.innerHTML = pbBuildHtml(); }
+        function pbOpenHistory() { vsNormalize(); vsHistKind = '페이백'; vsHistYm = pbQuarter; openModal('vsHistoryModal'); vsRenderHistory(); }
+        function pbConfirmQuarter() {
+            vsNormalize();
+            let qk = pbQuarter;
+            if (!vsIsAdmin()) { alert('관리자만 정산을 확정할 수 있습니다.'); return; }
+            if (pbIsConfirmed(qk)) return;
+            let D = pbData(qk);
+            if (!D.rows.length) { alert('페이백 매장이 없어 확정할 수 없습니다.'); return; }
+            if (!confirm(`${pbQLabel(qk)} 페이백 정산을 확정할까요?\n\n· ${D.groups.length}개 대리점 / ${D.rows.length}개 매장\n· CMS 입금 ${vsNum(D.cmsTotal)}원 · 페이백 정산금 ${vsNum(D.total)}원${pbQEnded(qk) ? '' : '\n· 아직 진행 중인 분기입니다. 확정하면 이후 입금은 반영되지 않습니다.'}\n· 확정 후에는 고객·수금 데이터가 바뀌어도 이 내용이 그대로 유지됩니다.\n· 관리자는 언제든 확정을 해제할 수 있습니다.`)) return;
+            let by = currentUser.name || currentUser.id;
+            vsSettle.pbConfirmed[qk] = { at: vsNowStr(), by: by, rows: D.rows.map(r => { let o = Object.assign({}, r); delete o.c; return o; }) };
+            delete vsSettle.pbPrev[qk];
+            vsSettle.confirmLog.push({ ym: qk, kind: '페이백', action: '확정', by: by, at: vsSettle.pbConfirmed[qk].at, det: `${D.groups.length}개 대리점 · ${D.rows.length}개 매장 · 정산금 ${vsNum(D.total)}원` });
+            vsSave();
+            renderPaybackSettle();
+        }
+        function pbUnconfirmQuarter() {
+            vsNormalize();
+            let qk = pbQuarter;
+            if (!vsIsAdmin()) { alert('관리자만 확정을 해제할 수 있습니다.'); return; }
+            if (!pbIsConfirmed(qk)) return;
+            if (!confirm(`${pbQLabel(qk)} 페이백 정산 확정을 해제할까요?\n해제하면 현재 시스템 데이터 기준으로 다시 집계됩니다. (해제 직전 확정본은 [확정 복원]으로 되돌릴 수 있습니다)`)) return;
+            vsSettle.pbPrev[qk] = vsSettle.pbConfirmed[qk];
+            delete vsSettle.pbConfirmed[qk];
+            vsSettle.confirmLog.push({ ym: qk, kind: '페이백', action: '확정 해제', by: currentUser.name || currentUser.id, at: vsNowStr() });
+            vsSave();
+            renderPaybackSettle();
+        }
+        function pbRestoreConfirm() {
+            vsNormalize();
+            let qk = pbQuarter, p = vsSettle.pbPrev[qk];
+            if (!vsIsAdmin()) { alert('관리자만 확정을 복원할 수 있습니다.'); return; }
+            if (pbIsConfirmed(qk) || !p) return;
+            let tot = vsSum(p.rows, r => r.total);
+            if (!confirm(`${pbQLabel(qk)} 페이백 정산을 해제 전 확정 상태로 복원할까요?\n\n· 확정 시각 ${p.at} (${p.by})\n· ${p.rows.length}개 매장 · 정산금 ${vsNum(tot)}원`)) return;
+            vsSettle.pbConfirmed[qk] = p;
+            delete vsSettle.pbPrev[qk];
+            vsSettle.confirmLog.push({ ym: qk, kind: '페이백', action: '확정', by: currentUser.name || currentUser.id, at: vsNowStr(), det: `확정 복원 · ${p.rows.length}개 매장 · 정산금 ${vsNum(tot)}원` });
+            vsSave();
+            renderPaybackSettle();
+        }
         function pbBuildHtml() {
             let D = pbData(pbQuarter);
             let th = 'border:1px solid #475569; background:#f1f5f9; padding:5px 2px; font-size:9.5px; font-weight:700; text-align:center;';
@@ -7266,6 +7357,8 @@
             let tr = 'text-align:right;';
             let font = "font-family:'Malgun Gothic','Noto Sans KR','Apple SD Gothic Neo',sans-serif; color:#0f172a; box-sizing:border-box;";
             let by = currentUser ? (currentUser.name || currentUser.id) : '';
+            let pv = id => { let e = document.getElementById(id); return e ? (e.value || '').trim() : ''; };
+            let cf = (vsSettle.pbConfirmed || {})[D.qk] || null;
             let box = (l, v, sub) => `<td style="border:1px solid #475569; padding:9px 8px; text-align:center; width:25%;"><div style="font-size:11px; color:#64748b; font-weight:700;">${l}</div><div style="font-size:16px; font-weight:800; margin-top:3px;">${v}</div>${sub ? `<div style="font-size:10px; color:#64748b; margin-top:2px;">${sub}</div>` : ''}</td>`;
             let mh1 = D.months.map(m => `<th style="${th}" colspan="2">${m.slice(0, 4)}년 ${Number(m.slice(5))}월</th>`).join('');
             let mh2 = D.months.map(() => `<th style="${th}">CMS</th><th style="${th}">페이백</th>`).join('');
@@ -7279,10 +7372,12 @@
                 body += `<tr style="background:#eff6ff; font-weight:800; page-break-inside:avoid;"><td style="${td} ${tr}" colspan="5">${escHtml(g.agency)} 합 계</td>` + D.months.map((m, i) => `<td style="${td} ${tr}">${vsNum(g.cms[i])}</td><td style="${td} ${tr}">${vsNum(g.pays[i])}</td>`).join('') + `<td style="${td} ${tr}">${vsNum(g.total)}</td></tr>`;
             });
             return `<div style="${font} width:794px; background:#fff; padding:38px 30px;">
-                <div style="text-align:center; font-size:24px; font-weight:800; letter-spacing:1px;">페이백 정산내역서</div>
+                <div style="text-align:center; font-size:24px; font-weight:800; letter-spacing:1px;">${escHtml(pv('px_title') || '페이백 정산내역서')}</div>
                 <table style="border-collapse:collapse; width:100%; margin-top:22px;"><tr>
                     <td style="${th} width:15%; font-size:11.5px;">정산 분기</td><td style="${td} width:35%; font-size:11.5px;">${pbQLabel(D.qk)}</td>
-                    <td style="${th} width:15%; font-size:11.5px;">작성일</td><td style="${td} width:35%; font-size:11.5px;">${new Date().toISOString().slice(0, 10).replace(/-/g, '.')}${by ? ' (' + escHtml(by) + ')' : ''}</td></tr></table>
+                    <td style="${th} width:15%; font-size:11.5px;">작성일</td><td style="${td} width:35%; font-size:11.5px;">${(pv('px_date') || new Date().toISOString().slice(0, 10)).replace(/-/g, '.')}</td></tr>
+                    <tr><td style="${th} font-size:11.5px;">작성자</td><td style="${td} font-size:11.5px;">${escHtml(pv('px_drafter') || by)}</td>
+                    <td style="${th} font-size:11.5px;">정산 확정</td><td style="${td} font-size:11.5px;">${cf ? escHtml(cf.at) + ' (' + escHtml(cf.by) + ')' : '미확정'}</td></tr></table>
                 <table style="border-collapse:collapse; width:100%; margin-top:14px;"><tr>
                     ${box('정산 대리점 수', vsNum(D.groups.filter(g => g.total > 0).length) + '곳')}${box('페이백 매장 수', vsNum(D.rows.filter(r => r.total > 0).length) + '곳')}${box('CMS 입금 합계', vsNum(D.cmsTotal) + '원')}${box('페이백 정산금', vsNum(D.total) + '원', 'VAT 포함')}</tr></table>
                 <div style="margin-top:18px; font-size:13px; font-weight:800;">대리점별 정산 내역</div>
@@ -7291,7 +7386,7 @@
                     <tbody>${body}
                     <tr style="background:#f1f5f9; font-weight:800; page-break-inside:avoid;"><td style="${td} text-align:center;" colspan="5">총 합 계</td>${D.months.map((m, i) => `<td style="${td} ${tr}">${vsNum(D.cms[i])}</td><td style="${td} ${tr}">${vsNum(D.pays[i])}</td>`).join('')}<td style="${td} ${tr}">${vsNum(D.total)}</td></tr></tbody>
                 </table>
-                <div style="margin-top:12px; font-size:10.5px; color:#475569; line-height:1.7;">※ 수금관리의 월별 CMS 입금 내역 기준으로 집계했으며, 입금이 확인된 달만 페이백이 산정됩니다. 금액 단위는 원(VAT 포함)입니다.</div>
+                <div style="margin-top:12px; font-size:10.5px; color:#475569; line-height:1.7;">※ 수금관리의 월별 CMS 입금 내역 기준으로 집계했으며, 입금이 확인된 달만 페이백이 산정됩니다. 금액 단위는 원(VAT 포함)입니다.${pv('px_memo') ? '<br>※ ' + escHtml(pv('px_memo')) : ''}</div>
             </div>`;
         }
         function pbDownloadExcel() {
